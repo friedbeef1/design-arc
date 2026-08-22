@@ -400,6 +400,26 @@ Before using Stitch, prepare the complete evidence-grounded journey, requirement
 
 Stitch is a visualization tool, not an evidence authority. The active host must validate returned screens and apply the existing proposal-wide correction loop of up to three correction rounds. Apply the same complete-state conformance matrix, full reinspection, three-verdict standard, and Visual Proposal Gate regardless of renderer. `Visual Proposal Gate` is the renderer-neutral user-facing name for the existing `Stitch Gate` contract in 0.3.x records; do not create an additional gate or require preference migration.
 
+### Bind the selected design to its production asset set
+
+Treat a production asset set as the implementation-ready visual files, variants, and provenance needed to reproduce its design; it is not application logic and does not authorize implementation. The active AI coding platform must create a baseline design and a corresponding platform production asset set before design selection. For each asset set, keep a manifest with a stable asset ID, provenance, intended screen or component and state, required format and variants, source or export identifier, implementation reference, and desktop and mobile render-proof status. A required asset that cannot yet be generated or exported remains an explicit blocked manifest item, never an omitted requirement.
+
+When Stitch is invoked, preserve its returned design and exported Stitch production asset set as a separate provenance-bound set; never overwrite either set with the other. Record the selected design as `platform`, `stitch`, or `hybrid` and bind it to the matching asset set before implementation handoff.
+
+- A `platform` selection requires platform-generated assets and rejects every Stitch asset.
+- A `stitch` selection requires exported Stitch assets and rejects platform-generated substitutes.
+- `Both` creates comparable proposals, not permission to mix their assets; mixing is allowed only after the user explicitly approves a `hybrid` design and identifies which screens, elements, and assets come from each set.
+
+After separate implementation authorization, require the built application to import, reference, and render every required asset from the selected asset set. Check the implementation source for the exact selected asset IDs, files, imports, and references, and reject unselected-set files, silent copies, lookalikes, regenerated substitutes, or placeholders. Block implementation completion when any required selected asset is missing, unused, broken, unavailable, substituted, or absent from the running application.
+
+Keep controls, labels, navigation, state, status, focus behavior, and accessibility as semantic HTML or native UI; never flatten them into raster or vector artwork. Visual assets may decorate or illustrate those interfaces, but they must not replace programmatic names, roles, values, state changes, focus order, keyboard behavior, or assistive-technology behavior.
+
+When a required asset is raster and the active AI coding platform lacks native image-generation capability, record it as blocked and stop before design completion or implementation handoff; HTML/CSS, SVG, placeholders, and invented substitutes do not satisfy it. Offer a separately authorized asset-generation or export path without claiming the active platform produced the raster.
+
+Return `matches approved proposal` only after both source integration and rendered fidelity pass: verify exact selected-asset imports and references, then inspect the running application at desktop and mobile viewports for correct loading and visual fidelity. A source-only check, static proposal, build result, or one viewport is insufficient. Record mismatches and remain blocked until the selected assets appear correctly in the running application or the user explicitly changes the approved design; an implementation exception cannot silently redefine the selected proposal.
+
+This asset-fidelity contract applies only after the existing design workflow and any separate implementation authorization. It does not let Design Arc authorize source changes, dependency installation, staging, deployment, or release, and it does not weaken Objective Confirmation, Direction Gate, Visual Proposal Gate, evidence integrity, platform guidance, accessibility, or the three-round visualization correction limit.
+
 ### Specify motion before visualization
 
 Identify every material on-screen animation and screen-to-screen transition in the selected direction. If existing product motion or standard native behavior is sufficient, record that choice instead of inventing custom motion.
@@ -514,6 +534,7 @@ Report these fields in the Codex conversation:
 - **Proposal:** journey map, embedded key renders, viewports, identifiers, and material states.
 - **Motion:** material animations and transitions, motion scope, evidence and provenance, complete contracts, reduced motion, implementation source, proof, and remaining uncertainty.
 - **Validation:** visual verdict, corrections, blocked proof, and remaining device or implementation checks.
+- **Asset fidelity:** platform and Stitch asset manifests when applicable, selected design and bound asset set, explicit hybrid approval if any, blocked assets, source integration evidence, desktop and mobile rendered evidence, and remaining mismatches.
 - **Authority:** design-only status and next authorized owner.
 
 ## Evidence and authorization integrity

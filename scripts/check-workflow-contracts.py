@@ -439,6 +439,44 @@ FORBIDDEN_PROJECT_HOME_PATTERNS = {
 
 RENDER_REPAIR_HEADING = "### Repair visual drift before the Visual Proposal Gate"
 
+ASSET_FIDELITY_HEADING = "### Bind the selected design to its production asset set"
+
+ASSET_FIDELITY_CONTRACTS = {
+    "case 01 platform baseline": (
+        "The active AI coding platform must create a baseline design and a corresponding platform production asset set before design selection.",
+    ),
+    "case 02 Stitch set preservation": (
+        "When Stitch is invoked, preserve its returned design and exported Stitch production asset set as a separate provenance-bound set; never overwrite either set with the other.",
+    ),
+    "case 03 selected-design binding": (
+        "Record the selected design as `platform`, `stitch`, or `hybrid` and bind it to the matching asset set before implementation handoff.",
+    ),
+    "case 04 implementation integration": (
+        "After separate implementation authorization, require the built application to import, reference, and render every required asset from the selected asset set.",
+    ),
+    "case 05 platform-selection isolation": (
+        "A `platform` selection requires platform-generated assets and rejects every Stitch asset.",
+    ),
+    "case 06 Stitch-selection isolation": (
+        "A `stitch` selection requires exported Stitch assets and rejects platform-generated substitutes.",
+    ),
+    "case 07 explicit hybrid approval": (
+        "`Both` creates comparable proposals, not permission to mix their assets; mixing is allowed only after the user explicitly approves a `hybrid` design and identifies which screens, elements, and assets come from each set.",
+    ),
+    "case 08 blocking failures": (
+        "Block implementation completion when any required selected asset is missing, unused, broken, unavailable, substituted, or absent from the running application.",
+    ),
+    "case 09 semantic UI": (
+        "Keep controls, labels, navigation, state, status, focus behavior, and accessibility as semantic HTML or native UI; never flatten them into raster or vector artwork.",
+    ),
+    "case 10 raster capability block": (
+        "When a required asset is raster and the active AI coding platform lacks native image-generation capability, record it as blocked and stop before design completion or implementation handoff; HTML/CSS, SVG, placeholders, and invented substitutes do not satisfy it.",
+    ),
+    "case 11 source and rendered proof": (
+        "Return `matches approved proposal` only after both source integration and rendered fidelity pass: verify exact selected-asset imports and references, then inspect the running application at desktop and mobile viewports for correct loading and visual fidelity.",
+    ),
+}
+
 RENDER_REPAIR_CONTRACTS = {
     "proposal-wide three-round bound": (
         "Use one initial visual proposal followed by at most three batched correction rounds for the entire proposal.",
@@ -526,6 +564,16 @@ def main() -> int:
     for label, fragments in GRAPH_CONTRACT_CASES.items():
         if any(fragment not in text for fragment in fragments):
             failures.append(f"missing or reversed graph {label} contract")
+
+    asset_fidelity = markdown_section(text, ASSET_FIDELITY_HEADING, "### ")
+    if asset_fidelity is None:
+        failures.append("missing selected-design asset-fidelity section")
+    else:
+        for label, fragments in ASSET_FIDELITY_CONTRACTS.items():
+            if any(fragment not in asset_fidelity for fragment in fragments):
+                failures.append(
+                    f"missing or reversed selected-design asset-fidelity {label} contract"
+                )
 
     render_repair = markdown_section(text, RENDER_REPAIR_HEADING, "## ")
     if render_repair is None:

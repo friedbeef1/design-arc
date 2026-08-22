@@ -7,6 +7,21 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CODEX_SKILL = REPO_ROOT / "plugins/design-arc/skills/design-arc/SKILL.md"
 CLAUDE_SKILL = REPO_ROOT / "claude-plugins/design-arc/skills/design-arc/SKILL.md"
+ANTIGRAVITY_SKILL = REPO_ROOT / "skills/design-arc/SKILL.md"
+
+ASSET_FIDELITY_CONTRACTS = (
+    "The active AI coding platform must create a baseline design and a corresponding platform production asset set before design selection.",
+    "When Stitch is invoked, preserve its returned design and exported Stitch production asset set as a separate provenance-bound set; never overwrite either set with the other.",
+    "Record the selected design as `platform`, `stitch`, or `hybrid` and bind it to the matching asset set before implementation handoff.",
+    "After separate implementation authorization, require the built application to import, reference, and render every required asset from the selected asset set.",
+    "A `platform` selection requires platform-generated assets and rejects every Stitch asset.",
+    "A `stitch` selection requires exported Stitch assets and rejects platform-generated substitutes.",
+    "`Both` creates comparable proposals, not permission to mix their assets; mixing is allowed only after the user explicitly approves a `hybrid` design and identifies which screens, elements, and assets come from each set.",
+    "Block implementation completion when any required selected asset is missing, unused, broken, unavailable, substituted, or absent from the running application.",
+    "Keep controls, labels, navigation, state, status, focus behavior, and accessibility as semantic HTML or native UI; never flatten them into raster or vector artwork.",
+    "When a required asset is raster and the active AI coding platform lacks native image-generation capability, record it as blocked and stop before design completion or implementation handoff; HTML/CSS, SVG, placeholders, and invented substitutes do not satisfy it.",
+    "Return `matches approved proposal` only after both source integration and rendered fidelity pass: verify exact selected-asset imports and references, then inspect the running application at desktop and mobile viewports for correct loading and visual fidelity.",
+)
 
 
 def require(source: str, fragment: str, label: str) -> None:
@@ -61,11 +76,18 @@ def test_claude_visualization_contract() -> None:
 
 
 def test_shared_stitch_validation_contract() -> None:
-    for path in (CODEX_SKILL, CLAUDE_SKILL):
+    for path in (CODEX_SKILL, CLAUDE_SKILL, ANTIGRAVITY_SKILL):
         source = path.read_text(encoding="utf-8")
         require(source, "Before using Stitch, prepare the complete evidence-grounded journey, requirements, and important-state inventory.", "Stitch preparation")
         require(source, "Stitch is a visualization tool, not an evidence authority.", "Stitch evidence boundary")
         require(source, "up to three correction rounds", "three-round active-host validation")
+
+
+def test_shared_selected_asset_fidelity_contract() -> None:
+    for path in (CODEX_SKILL, CLAUDE_SKILL, ANTIGRAVITY_SKILL):
+        source = path.read_text(encoding="utf-8")
+        for fragment in ASSET_FIDELITY_CONTRACTS:
+            require(source, fragment, f"selected-asset fidelity in {path}")
 
 
 def main() -> int:
@@ -75,6 +97,8 @@ def main() -> int:
     print("PASS: Claude visualization contract")
     test_shared_stitch_validation_contract()
     print("PASS: shared Stitch preparation and validation contract")
+    test_shared_selected_asset_fidelity_contract()
+    print("PASS: shared selected-design asset-fidelity contract")
     return 0
 
 

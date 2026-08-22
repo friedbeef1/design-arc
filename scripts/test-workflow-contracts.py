@@ -412,6 +412,50 @@ MUTATIONS = {
         "Stitch is a visualization tool, not an evidence authority. The active host must validate returned screens and apply the existing proposal-wide correction loop of up to three correction rounds.",
         "Use a lighter validation standard for Codex-generated screens.",
     ),
+    "asset fidelity 01 platform baseline": (
+        "The active AI coding platform must create a baseline design and a corresponding platform production asset set before design selection.",
+        "The active AI coding platform may skip its baseline design and production asset set.",
+    ),
+    "asset fidelity 02 Stitch set preservation": (
+        "When Stitch is invoked, preserve its returned design and exported Stitch production asset set as a separate provenance-bound set; never overwrite either set with the other.",
+        "When Stitch is invoked, replace the platform design and assets with the Stitch result.",
+    ),
+    "asset fidelity 03 selected-design binding": (
+        "Record the selected design as `platform`, `stitch`, or `hybrid` and bind it to the matching asset set before implementation handoff.",
+        "Allow implementation handoff without recording which design and asset set were selected.",
+    ),
+    "asset fidelity 04 implementation integration": (
+        "After separate implementation authorization, require the built application to import, reference, and render every required asset from the selected asset set.",
+        "After implementation authorization, allow the built application to omit selected assets.",
+    ),
+    "asset fidelity 05 platform-selection isolation": (
+        "A `platform` selection requires platform-generated assets and rejects every Stitch asset.",
+        "A `platform` selection may use Stitch assets as silent substitutes.",
+    ),
+    "asset fidelity 06 Stitch-selection isolation": (
+        "A `stitch` selection requires exported Stitch assets and rejects platform-generated substitutes.",
+        "A `stitch` selection may use platform-generated substitutes.",
+    ),
+    "asset fidelity 07 explicit hybrid approval": (
+        "`Both` creates comparable proposals, not permission to mix their assets; mixing is allowed only after the user explicitly approves a `hybrid` design and identifies which screens, elements, and assets come from each set.",
+        "`Both` silently permits any mixture of platform and Stitch assets.",
+    ),
+    "asset fidelity 08 blocking failures": (
+        "Block implementation completion when any required selected asset is missing, unused, broken, unavailable, substituted, or absent from the running application.",
+        "Allow implementation completion when required selected assets are missing or not rendered.",
+    ),
+    "asset fidelity 09 semantic UI": (
+        "Keep controls, labels, navigation, state, status, focus behavior, and accessibility as semantic HTML or native UI; never flatten them into raster or vector artwork.",
+        "Flatten controls, labels, navigation, state, status, focus behavior, and accessibility into artwork.",
+    ),
+    "asset fidelity 10 raster capability block": (
+        "When a required asset is raster and the active AI coding platform lacks native image-generation capability, record it as blocked and stop before design completion or implementation handoff; HTML/CSS, SVG, placeholders, and invented substitutes do not satisfy it.",
+        "When native image generation is unavailable, treat HTML/CSS or SVG as a required raster asset.",
+    ),
+    "asset fidelity 11 source and rendered proof": (
+        "Return `matches approved proposal` only after both source integration and rendered fidelity pass: verify exact selected-asset imports and references, then inspect the running application at desktop and mobile viewports for correct loading and visual fidelity.",
+        "Return `matches approved proposal` after source inspection without desktop and mobile runtime evidence.",
+    ),
     "saved project resolution": (
         "Call `list_projects` before any home lookup or creation and resolve the current saved project's `projectId` and saved-project name; use the workspace-folder name only when the saved-project name is unavailable.",
         "Infer a project from the task title without calling `list_projects`.",
@@ -776,7 +820,7 @@ GRAPH_MUTATIONS = {
 
 
 EXPECTED_GRAPH_MUTATION_COUNT = 24
-EXPECTED_TOTAL_MUTATION_COUNT = 193
+EXPECTED_TOTAL_MUTATION_COUNT = 204
 
 
 ORDERED_MUTATION_MARKERS = (

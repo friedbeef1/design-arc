@@ -391,6 +391,28 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             result.stderr,
         )
 
+    def test_comment_only_stable_id_does_not_bind_the_live_rendered_asset(self) -> None:
+        """A source comment must not bind an approved ID to a differently marked live asset."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-comment-only-asset-id-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace(
+                '<img data-design-arc-asset="platform.journey"',
+                '<!-- platform.journey uses assets/platform-journey.png -->\n'
+                '    <img data-design-arc-asset="not-approved-id"',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            manifest["asset_sets"]["platform"][0]["selector"] = (
+                '[data-design-arc-asset="not-approved-id"]'
+            )
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "selected platform.journey live asset marker does not match approved stable ID at desktop",
+            result.stderr,
+        )
+
     def test_required_raster_is_blocked_without_native_image_generation(self) -> None:
         """Allowing a raster substitute on a non-image runtime must break this rejection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-raster-block-") as temp:

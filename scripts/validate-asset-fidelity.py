@@ -506,6 +506,7 @@ PROBE_FUNCTION = r"""
     return {
       id: expected.id,
       found: true,
+      assetMarker: element.getAttribute('data-design-arc-asset') || '',
       tag: element.tagName.toLowerCase(),
       src: element.currentSrc || element.src || '',
       complete: element.complete === true,
@@ -1019,6 +1020,10 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                 asset_id = str(asset["id"])
                 actual = object_value(actual_assets.get(asset_id), f"browser asset {asset_id}")
                 require(actual.get("found") is True, f"selected {asset_id} is absent from running application at {viewport_name}")
+                require(
+                    actual.get("assetMarker") == asset_id,
+                    f"selected {asset_id} live asset marker does not match approved stable ID at {viewport_name}",
+                )
                 require(actual.get("tag") == "img", f"selected {asset_id} must render as an image at {viewport_name}")
                 actual_src = text_value(actual.get("src"), f"selected {asset_id} browser source")
                 expected_path = str(asset["path"])

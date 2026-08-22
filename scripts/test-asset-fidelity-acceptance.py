@@ -413,6 +413,35 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             result.stderr,
         )
 
+    def test_responsive_live_asset_marker_must_match_at_mobile(self) -> None:
+        """Checking the stable marker only at desktop must allow this mobile-only drift."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-mobile-asset-id-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace(
+                "</body>",
+                """<script>
+if (matchMedia('(max-width: 600px)').matches) {
+  document.querySelector('[data-design-arc-asset]').setAttribute(
+    'data-design-arc-asset', 'not-approved-id'
+  );
+}
+</script>
+</body>""",
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            manifest["asset_sets"]["platform"][0]["selector"] = (
+                'img[src="assets/platform-journey.png"]'
+            )
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("PASS: selected platform.journey rendered at desktop", result.stdout)
+        self.assertIn(
+            "selected platform.journey live asset marker does not match approved stable ID at mobile",
+            result.stderr,
+        )
+
     def test_required_raster_is_blocked_without_native_image_generation(self) -> None:
         """Allowing a raster substitute on a non-image runtime must break this rejection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-raster-block-") as temp:
@@ -466,6 +495,100 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             result = run_validator(root, manifest)
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("unselected stitch asset is referenced by implementation source", result.stderr)
+
+    def test_runtime_rejects_dynamically_composed_unselected_assets(self) -> None:
+        """Static source scans must not miss known assets loaded or rendered only at runtime."""
+        cases = ("live-image", "removed-image", "css-background")
+        for label in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                prefix=f"design-arc-runtime-mixed-{label}-"
+            ) as temp:
+                root = Path(temp)
+                manifest = manifest_for(root, "stitch")
+                manifest["selection"] = {
+                    "design": "platform",
+                    "hybrid_approved": False,
+                    "asset_ids": ["platform.journey"],
+                }
+                if label == "live-image":
+                    runtime_use = """
+const image = document.createElement('img');
+image.setAttribute('data-design-arc-asset', assetId);
+image.src = assetPath;
+image.alt = 'Unapproved Stitch journey';
+document.body.append(image);
+"""
+                elif label == "removed-image":
+                    runtime_use = """
+const image = document.createElement('img');
+image.setAttribute('data-design-arc-asset', assetId);
+image.src = assetPath;
+image.alt = 'Unapproved Stitch journey';
+document.body.append(image);
+window.addEventListener('load', () => image.remove(), {once: true});
+"""
+                else:
+                    runtime_use = """
+const panel = document.createElement('div');
+panel.style.cssText = 'width:64px;height:32px;background-size:cover';
+panel.style.backgroundImage = 'url("' + assetPath + '")';
+document.body.append(panel);
+"""
+                script = """<script>
+const assetPath = ['assets', 'stitch-journey.png'].join('/');
+const assetId = ['stitch', 'journey'].join('.');
+""" + runtime_use + """</script>
+"""
+                html = app_html("platform.journey", "assets/platform-journey.png")
+                html = html.replace("</body>", script + "</body>")
+                (root / "index.html").write_text(html, encoding="utf-8")
+                result = run_validator(root, manifest)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn(
+                    "unselected known asset stitch.journey is loaded or rendered "
+                    "in running application at desktop",
+                    result.stderr,
+                )
+
+    def test_hybrid_runtime_rejects_known_asset_outside_the_approved_selection(self) -> None:
+        """Hybrid approval must not authorize known assets omitted from its explicit selection."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-hybrid-unselected-runtime-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "stitch")
+            install_hybrid_app(root, manifest)
+            optional_path = root / "assets/platform-optional.png"
+            optional_path.write_bytes(png_bytes(32, 16, (48, 120, 210)))
+            manifest["asset_sets"]["platform"].append(
+                {
+                    "id": "platform.optional",
+                    "path": "assets/platform-optional.png",
+                    "sha256": sha256(optional_path),
+                    "media_type": "image/png",
+                    "required": False,
+                }
+            )
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace(
+                "</body>",
+                """<script>
+const optionalPath = ['assets', 'platform-optional.png'].join('/');
+const optionalId = ['platform', 'optional'].join('.');
+const optionalImage = document.createElement('img');
+optionalImage.setAttribute('data-design-arc-asset', optionalId);
+optionalImage.src = optionalPath;
+optionalImage.alt = 'Unapproved optional platform asset';
+document.body.append(optionalImage);
+</script>
+</body>""",
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "unselected known asset platform.optional is loaded or rendered "
+            "in running application at desktop",
+            result.stderr,
+        )
 
     def test_flattened_semantic_control_is_rejected_in_the_running_app(self) -> None:
         """Treating visual text as a semantic button must break this rejection."""

@@ -523,6 +523,35 @@ PROBE_FUNCTION = r"""
         (hit === element || element.contains(hit)),
     };
   });
+  const liveMarkers = Array.from(document.querySelectorAll('[data-design-arc-asset]'))
+    .map(element => element.getAttribute('data-design-arc-asset') || '')
+    .filter(Boolean);
+  const liveUrls = [];
+  const assetElements = 'img, source, video, audio, object, embed, input[type="image"], image';
+  for (const element of document.querySelectorAll(assetElements)) {
+    if (element.currentSrc) liveUrls.push(element.currentSrc);
+    for (const attribute of ['src', 'href', 'poster', 'data']) {
+      const value = element.getAttribute(attribute);
+      if (value) liveUrls.push(value);
+    }
+  }
+  const resourceUrls = performance.getEntriesByType('resource')
+    .map(entry => entry.name)
+    .filter(value => typeof value === 'string' && value.length > 0);
+  const urlsForPath = (urls, path) => Array.from(new Set(urls.filter(value => {
+    try {
+      return new URL(value, document.baseURI).pathname.replace(/^\/+/, '') === path;
+    } catch (_) {
+      return false;
+    }
+  })));
+  const knownAssets = spec.knownAssets.map(expected => ({
+    id: expected.id,
+    path: expected.path,
+    markerPresent: liveMarkers.includes(expected.id),
+    liveUrls: urlsForPath(liveUrls, expected.path),
+    resourceUrls: urlsForPath(resourceUrls, expected.path),
+  }));
   const semantics = spec.semantics.map(expected => {
     const element = document.querySelector(expected.selector);
     if (!element) return {selector: expected.selector, found: false};
@@ -549,7 +578,7 @@ PROBE_FUNCTION = r"""
       ),
     };
   });
-  return {viewport: {width: innerWidth, height: innerHeight}, assets, semantics};
+  return {viewport: {width: innerWidth, height: innerHeight}, assets, knownAssets, semantics};
 })
 """
 
@@ -724,6 +753,7 @@ def inspect_viewport(
     viewport_name: str,
     viewport: dict[str, object],
     selected_assets: list[dict[str, object]],
+    known_assets: list[dict[str, object]],
     semantics: list[dict[str, object]],
 ) -> tuple[dict[str, object], bytes]:
     width = viewport.get("width")
@@ -740,6 +770,10 @@ def inspect_viewport(
         "assets": [
             {"id": asset["id"], "selector": asset["selector"]}
             for asset in selected_assets
+        ],
+        "knownAssets": [
+            {"id": asset["id"], "path": asset["path"]}
+            for asset in known_assets
         ],
         "semantics": [
             {"selector": requirement["selector"]}
@@ -960,6 +994,7 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
             actual_dimensions == expected_dimensions,
             f"{viewport_name} viewport must be exactly {expected_dimensions[0]}x{expected_dimensions[1]}",
         )
+    known_assets = [asset for assets in parsed_sets.values() for asset in assets]
     selected_assets = [assets_by_id[asset_id][1] for asset_id in selected_ids]
     reference_payloads: dict[str, tuple[bytes, str, str]] = {}
     reference_keys: dict[str, str] = {}
@@ -1000,12 +1035,21 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
         }
         for viewport_name in ("desktop", "mobile"):
             viewport = object_value(viewports.get(viewport_name), f"viewports.{viewport_name}")
-            result, screenshot = inspect_viewport(chrome, url, viewport_name, viewport, selected_assets, semantics)
+            result, screenshot = inspect_viewport(
+                chrome,
+                url,
+                viewport_name,
+                viewport,
+                selected_assets,
+                known_assets,
+                semantics,
+            )
             viewport_proof: dict[str, object] = {
                 "width": viewport["width"],
                 "height": viewport["height"],
                 "screenshot_sha256": hashlib.sha256(screenshot).hexdigest(),
                 "assets": {},
+                "known_asset_inventory": {},
             }
             print(
                 f"PASS: {viewport_name} screenshot sha256 "
@@ -1016,6 +1060,58 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                 for item in list_value(result.get("assets"), f"browser {viewport_name} assets")
                 if isinstance(item, dict)
             }
+            runtime_inventory = {
+                item.get("id"): item
+                for item in list_value(
+                    result.get("knownAssets"),
+                    f"browser {viewport_name} known asset inventory",
+                )
+                if isinstance(item, dict)
+            }
+            require(
+                set(runtime_inventory) == set(assets_by_id),
+                f"browser {viewport_name} known asset inventory is incomplete",
+            )
+            for known_asset in known_assets:
+                known_id = str(known_asset["id"])
+                runtime_asset = object_value(
+                    runtime_inventory.get(known_id),
+                    f"browser known asset {known_id}",
+                )
+                known_path = str(known_asset["path"])
+                require(
+                    runtime_asset.get("path") == known_path,
+                    f"browser known asset path drifted for {known_id} at {viewport_name}",
+                )
+                marker_present = runtime_asset.get("markerPresent") is True
+                live_urls = [
+                    text_value(value, f"browser known asset {known_id} live URL")
+                    for value in list_value(
+                        runtime_asset.get("liveUrls"),
+                        f"browser known asset {known_id} live URLs",
+                    )
+                ]
+                resource_urls = [
+                    text_value(value, f"browser known asset {known_id} resource URL")
+                    for value in list_value(
+                        runtime_asset.get("resourceUrls"),
+                        f"browser known asset {known_id} resource URLs",
+                    )
+                ]
+                object_value(
+                    viewport_proof["known_asset_inventory"],
+                    "viewport proof known asset inventory",
+                )[known_id] = {
+                    "path": known_path,
+                    "live_marker": marker_present,
+                    "live_urls": live_urls,
+                    "resource_urls": resource_urls,
+                }
+                require(
+                    known_id in selected_ids or not (marker_present or live_urls or resource_urls),
+                    f"unselected known asset {known_id} is loaded or rendered "
+                    f"in running application at {viewport_name}",
+                )
             for asset in selected_assets:
                 asset_id = str(asset["id"])
                 actual = object_value(actual_assets.get(asset_id), f"browser asset {asset_id}")

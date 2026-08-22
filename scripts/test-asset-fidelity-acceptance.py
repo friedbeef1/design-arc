@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from contextlib import contextmanager
+import base64
 import functools
 import hashlib
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -24,6 +25,9 @@ import zlib
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VALIDATOR = REPO_ROOT / "scripts/validate-asset-fidelity.py"
+JPEG_FIXTURE = base64.b64decode(
+    "/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAQKADAAQAAAABAAAAIAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAIABAAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMAAQEBAQEBAgEBAgICAgICAwICAgIDBAMDAwMDBAUEBAQEBAQFBQUFBQUFBQYGBgYGBgcHBwcHCAgICAgICAgICP/bAEMBAQEBAgICAwICAwgFBQUICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICP/dAAQABP/aAAwDAQACEQMRAD8A/tYooor8nPsAooooAKKKKACiiigD/9D+1iiiivyc+wCiiigAooooAKKKKAP/2Q=="
+)
 
 
 def png_bytes(width: int, height: int, rgb: tuple[int, int, int]) -> bytes:
@@ -217,6 +221,28 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             result = run_validator(root, manifest_for(root, "platform"))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("PASS: asset fidelity matches approved proposal at desktop and mobile viewports", result.stdout)
+
+    def test_browser_native_reference_sampling_accepts_real_jpeg_asset(self) -> None:
+        """Decoding approved references as PNG-only must break this browser-supported JPEG."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-jpeg-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            jpeg = root / "assets/platform-journey.jpg"
+            jpeg.write_bytes(JPEG_FIXTURE)
+            asset = manifest["asset_sets"]["platform"][0]
+            asset.update(
+                {
+                    "path": "assets/platform-journey.jpg",
+                    "sha256": sha256(jpeg),
+                    "media_type": "image/jpeg",
+                }
+            )
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace("assets/platform-journey.png", "assets/platform-journey.jpg")
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("selected platform.journey rendered at mobile", result.stdout)
 
     def test_stitch_selection_uses_exported_stitch_asset_without_platform_substitute(self) -> None:
         """Accepting a platform substitute for a Stitch selection must break this pass."""

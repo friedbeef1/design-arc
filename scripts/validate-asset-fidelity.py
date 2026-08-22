@@ -378,6 +378,32 @@ PROBE_FUNCTION = r"""
     const x = Math.max(0, Math.min(innerWidth - 1, rect.left + rect.width / 2));
     const y = Math.max(0, Math.min(innerHeight - 1, rect.top + rect.height / 2));
     const hit = rect.width > 0 && rect.height > 0 ? document.elementFromPoint(x, y) : null;
+    const referenceSamples = [];
+    let referenceError = '';
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(rect.width));
+      canvas.height = Math.max(1, Math.round(rect.height));
+      const context = canvas.getContext('2d', {willReadFrequently: true});
+      if (!context) throw new Error('2D canvas is unavailable');
+      context.drawImage(element, 0, 0, canvas.width, canvas.height);
+      for (let row = 0; row < 10; row += 1) {
+        const vertical = (row + 0.5) / 10;
+        const canvasY = Math.min(canvas.height - 1, Math.floor(vertical * canvas.height));
+        for (let column = 0; column < 20; column += 1) {
+          const horizontal = (column + 0.5) / 20;
+          const canvasX = Math.min(canvas.width - 1, Math.floor(horizontal * canvas.width));
+          const color = Array.from(context.getImageData(canvasX, canvasY, 1, 1).data);
+          referenceSamples.push({
+            screenX: Math.floor(rect.left + horizontal * rect.width),
+            screenY: Math.floor(rect.top + vertical * rect.height),
+            rgba: color,
+          });
+        }
+      }
+    } catch (error) {
+      referenceError = String(error && error.message ? error.message : error);
+    }
     return {
       id: expected.id,
       found: true,
@@ -391,6 +417,8 @@ PROBE_FUNCTION = r"""
       width: rect.width,
       height: rect.height,
       alt: element.getAttribute('alt') || '',
+      referenceSamples,
+      referenceError,
       visible: style.display !== 'none' && style.visibility !== 'hidden' &&
         Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0 &&
         rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight &&
@@ -517,34 +545,36 @@ def rgba_pixel(pixels: bytes, width: int, x: int, y: int) -> tuple[int, int, int
 
 def screenshot_asset_coverage(
     screenshot: bytes,
-    approved_asset: bytes,
-    rectangle: dict[str, object],
+    reference_samples: object,
 ) -> float:
     screen_width, screen_height, screen_pixels = decode_png(screenshot, "browser screenshot")
-    asset_width, asset_height, asset_pixels = decode_png(approved_asset, "approved asset")
-    x = float(rectangle["x"])
-    y = float(rectangle["y"])
-    width = float(rectangle["width"])
-    height = float(rectangle["height"])
     matches = 0
     compared = 0
-    columns = 20
-    rows = 10
-    for row in range(rows):
-        vertical = (row + 0.5) / rows
-        screen_y = min(screen_height - 1, max(0, int(y + vertical * height)))
-        asset_y = min(asset_height - 1, int(vertical * asset_height))
-        for column in range(columns):
-            horizontal = (column + 0.5) / columns
-            screen_x = min(screen_width - 1, max(0, int(x + horizontal * width)))
-            asset_x = min(asset_width - 1, int(horizontal * asset_width))
-            expected = rgba_pixel(asset_pixels, asset_width, asset_x, asset_y)
-            if expected[3] < 250:
-                continue
-            actual = rgba_pixel(screen_pixels, screen_width, screen_x, screen_y)
-            compared += 1
-            if max(abs(actual[channel] - expected[channel]) for channel in range(3)) <= 16:
-                matches += 1
+    samples = list_value(reference_samples, "browser-native asset reference samples")
+    require(len(samples) == 200, "browser-native asset reference sampling must cover 200 points")
+    for index, raw_sample in enumerate(samples):
+        sample = object_value(raw_sample, f"browser-native asset reference sample {index}")
+        screen_x = sample.get("screenX")
+        screen_y = sample.get("screenY")
+        require(
+            isinstance(screen_x, int) and 0 <= screen_x < screen_width,
+            f"browser-native asset reference sample {index} has an invalid x coordinate",
+        )
+        require(
+            isinstance(screen_y, int) and 0 <= screen_y < screen_height,
+            f"browser-native asset reference sample {index} has an invalid y coordinate",
+        )
+        rgba = list_value(sample.get("rgba"), f"browser-native asset reference sample {index} rgba")
+        require(
+            len(rgba) == 4 and all(isinstance(channel, int) and 0 <= channel <= 255 for channel in rgba),
+            f"browser-native asset reference sample {index} has invalid color data",
+        )
+        if rgba[3] < 250:
+            continue
+        actual = rgba_pixel(screen_pixels, screen_width, screen_x, screen_y)
+        compared += 1
+        if max(abs(actual[channel] - rgba[channel]) for channel in range(3)) <= 16:
+            matches += 1
     require(compared >= 100, "approved asset has insufficient opaque pixel coverage for screenshot proof")
     return matches / compared
 
@@ -796,8 +826,11 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                         abs(actual_dimension - expected) <= tolerance,
                         f"selected {asset_id} {dimension} does not match approved proposal at {viewport_name}",
                     )
-                approved_path = safe_file(root, asset.get("path"), f"asset {asset_id} path")[1]
-                coverage = screenshot_asset_coverage(screenshot, approved_path.read_bytes(), actual)
+                require(
+                    actual.get("referenceError") in {"", None},
+                    f"selected {asset_id} browser-native reference sampling failed at {viewport_name}",
+                )
+                coverage = screenshot_asset_coverage(screenshot, actual.get("referenceSamples"))
                 require(
                     coverage >= 0.9,
                     f"selected {asset_id} screenshot coverage is below 90% at {viewport_name}",
@@ -809,6 +842,9 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                         dimension: actual[dimension] for dimension in ("x", "y", "width", "height")
                     },
                     "pixel_coverage": round(coverage, 6),
+                    "reference_sample_count": len(
+                        list_value(actual.get("referenceSamples"), "asset reference samples")
+                    ),
                 }
                 print(f"PASS: selected {asset_id} rendered at {viewport_name}")
 

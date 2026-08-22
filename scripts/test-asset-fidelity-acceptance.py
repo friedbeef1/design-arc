@@ -526,6 +526,28 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("selected platform.journey screenshot coverage is below 90% at desktop", result.stderr)
 
+    def test_application_cannot_spoof_reference_pixels_with_canvas_monkey_patch(self) -> None:
+        """Computing expected colors in the application realm must falsely approve this overlay."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-canvas-spoof-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            spoof = """<script>
+CanvasRenderingContext2D.prototype.getImageData = function () {
+  return {data: new Uint8ClampedArray([0, 0, 0, 255])};
+};
+</script>"""
+            html = html.replace("</head>", spoof + "</head>")
+            html = html.replace(
+                "</body>",
+                '<div style="position:fixed;left:24px;top:64px;width:320px;height:160px;'
+                'background:#000;z-index:99;pointer-events:none"></div></body>',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("selected platform.journey screenshot coverage is below 90% at desktop", result.stderr)
+
     def test_success_retains_real_screenshot_hashes_and_asset_coverage(self) -> None:
         """Removing screenshot capture or content comparison must erase this proof result."""
         with tempfile.TemporaryDirectory(prefix="design-arc-screenshot-proof-") as temp:
@@ -536,6 +558,10 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             proof = json.loads(evidence.read_text(encoding="utf-8"))
         self.assertEqual(set(proof["viewports"]), {"desktop", "mobile"})
+        boundary = proof["reference_trust_boundary"]
+        self.assertTrue(boundary["separate_application_origin"])
+        self.assertTrue(boundary["independent_browser_profile"])
+        self.assertFalse(boundary["application_content_served"])
         for viewport in ("desktop", "mobile"):
             self.assertRegex(proof["viewports"][viewport]["screenshot_sha256"], r"^[0-9a-f]{64}$")
             self.assertGreaterEqual(

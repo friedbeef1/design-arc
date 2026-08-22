@@ -8,7 +8,7 @@ import base64
 from contextlib import contextmanager
 import functools
 import hashlib
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
@@ -126,6 +126,58 @@ def serve(root: Path) -> Iterator[str]:
     try:
         host, port = server.server_address[:2]
         yield f"http://{host}:{port}/index.html"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def reference_handler(
+    assets: dict[str, tuple[bytes, str, str]],
+) -> type[BaseHTTPRequestHandler]:
+    class TrustedReferenceHandler(BaseHTTPRequestHandler):
+        def log_message(self, _format: str, *_args: object) -> None:
+            return
+
+        def do_GET(self) -> None:
+            path = urlparse(self.path).path
+            if path == "/reference.html":
+                body = b"<!doctype html><meta charset=utf-8><title>Design Arc trusted raster reference</title>"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header(
+                    "Content-Security-Policy",
+                    "default-src 'none'; img-src 'self'; script-src 'none'; worker-src 'none'; connect-src 'none'",
+                )
+            elif path.startswith("/asset/") and path.removeprefix("/asset/") in assets:
+                asset_key = path.removeprefix("/asset/")
+                body, media_type, approved_hash = assets[asset_key]
+                self.send_response(200)
+                self.send_header("Content-Type", media_type)
+                self.send_header("X-Design-Arc-Approved-SHA256", approved_hash)
+            else:
+                body = b"not found"
+                self.send_response(404)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+    return TrustedReferenceHandler
+
+
+@contextmanager
+def serve_reference_assets(
+    assets: dict[str, tuple[bytes, str, str]],
+) -> Iterator[str]:
+    """Serve approved bytes from an origin that exposes no application content."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), reference_handler(assets))
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address[:2]
+        yield f"http://{host}:{port}"
     finally:
         server.shutdown()
         server.server_close()
@@ -378,32 +430,6 @@ PROBE_FUNCTION = r"""
     const x = Math.max(0, Math.min(innerWidth - 1, rect.left + rect.width / 2));
     const y = Math.max(0, Math.min(innerHeight - 1, rect.top + rect.height / 2));
     const hit = rect.width > 0 && rect.height > 0 ? document.elementFromPoint(x, y) : null;
-    const referenceSamples = [];
-    let referenceError = '';
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(rect.width));
-      canvas.height = Math.max(1, Math.round(rect.height));
-      const context = canvas.getContext('2d', {willReadFrequently: true});
-      if (!context) throw new Error('2D canvas is unavailable');
-      context.drawImage(element, 0, 0, canvas.width, canvas.height);
-      for (let row = 0; row < 10; row += 1) {
-        const vertical = (row + 0.5) / 10;
-        const canvasY = Math.min(canvas.height - 1, Math.floor(vertical * canvas.height));
-        for (let column = 0; column < 20; column += 1) {
-          const horizontal = (column + 0.5) / 20;
-          const canvasX = Math.min(canvas.width - 1, Math.floor(horizontal * canvas.width));
-          const color = Array.from(context.getImageData(canvasX, canvasY, 1, 1).data);
-          referenceSamples.push({
-            screenX: Math.floor(rect.left + horizontal * rect.width),
-            screenY: Math.floor(rect.top + vertical * rect.height),
-            rgba: color,
-          });
-        }
-      }
-    } catch (error) {
-      referenceError = String(error && error.message ? error.message : error);
-    }
     return {
       id: expected.id,
       found: true,
@@ -417,8 +443,6 @@ PROBE_FUNCTION = r"""
       width: rect.width,
       height: rect.height,
       alt: element.getAttribute('alt') || '',
-      referenceSamples,
-      referenceError,
       visible: style.display !== 'none' && style.visibility !== 'hidden' &&
         Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0 &&
         rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight &&
@@ -447,6 +471,42 @@ PROBE_FUNCTION = r"""
     };
   });
   return {viewport: {width: innerWidth, height: innerHeight}, assets, semantics};
+})
+"""
+
+
+REFERENCE_FUNCTION = r"""
+(async (spec) => {
+  const image = new Image();
+  image.decoding = 'sync';
+  image.src = spec.assetUrl;
+  await image.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(spec.width));
+  canvas.height = Math.max(1, Math.round(spec.height));
+  const context = canvas.getContext('2d', {willReadFrequently: true});
+  if (!context) throw new Error('trusted 2D canvas is unavailable');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const samples = [];
+  for (let row = 0; row < 10; row += 1) {
+    const vertical = (row + 0.5) / 10;
+    const canvasY = Math.min(canvas.height - 1, Math.floor(vertical * canvas.height));
+    for (let column = 0; column < 20; column += 1) {
+      const horizontal = (column + 0.5) / 20;
+      const canvasX = Math.min(canvas.width - 1, Math.floor(horizontal * canvas.width));
+      samples.push({
+        screenX: Math.floor(spec.x + horizontal * spec.width),
+        screenY: Math.floor(spec.y + vertical * spec.height),
+        rgba: Array.from(context.getImageData(canvasX, canvasY, 1, 1).data),
+      });
+    }
+  }
+  return {
+    src: image.currentSrc || image.src,
+    naturalWidth: image.naturalWidth,
+    naturalHeight: image.naturalHeight,
+    samples,
+  };
 })
 """
 
@@ -628,6 +688,51 @@ def inspect_viewport(
     return result, screenshot
 
 
+def trusted_reference_samples(
+    chrome: ChromeSession,
+    reference_origin: str,
+    asset_key: str,
+    viewport_name: str,
+    viewport: dict[str, object],
+    rectangle: dict[str, object],
+) -> list[object]:
+    """Decode approved bytes in a clean profile and non-application origin."""
+    width = viewport["width"]
+    height = viewport["height"]
+    chrome.call(
+        "Emulation.setDeviceMetricsOverride",
+        {"width": width, "height": height, "deviceScaleFactor": 1, "mobile": viewport_name == "mobile"},
+    )
+    reference_page = f"{reference_origin}/reference.html?viewport={viewport_name}&asset={asset_key}"
+    asset_url = f"{reference_origin}/asset/{asset_key}"
+    chrome.call("Page.navigate", {"url": reference_page})
+    chrome.wait_event("Page.loadEventFired")
+    spec = {
+        "assetUrl": asset_url,
+        "x": rectangle["x"],
+        "y": rectangle["y"],
+        "width": rectangle["width"],
+        "height": rectangle["height"],
+    }
+    evaluation = chrome.call(
+        "Runtime.evaluate",
+        {
+            "expression": f"{REFERENCE_FUNCTION}({json.dumps(spec)})",
+            "awaitPromise": True,
+            "returnByValue": True,
+        },
+    )
+    require("exceptionDetails" not in evaluation, "trusted browser-native reference sampling failed")
+    remote = object_value(evaluation.get("result"), "trusted browser runtime result")
+    result = object_value(remote.get("value"), "trusted browser runtime value")
+    require(result.get("src") == asset_url, "trusted reference loaded an unexpected asset URL")
+    require(
+        int(result.get("naturalWidth", 0)) > 0 and int(result.get("naturalHeight", 0)) > 0,
+        "trusted reference asset did not decode",
+    )
+    return list_value(result.get("samples"), "trusted browser-native asset reference samples")
+
+
 def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) -> None:
     require(manifest_path.is_file(), f"manifest is unavailable: {manifest_path}")
     root = manifest_path.resolve().parent
@@ -756,9 +861,21 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
             f"{viewport_name} viewport must be exactly {expected_dimensions[0]}x{expected_dimensions[1]}",
         )
     selected_assets = [assets_by_id[asset_id][1] for asset_id in selected_ids]
+    reference_payloads: dict[str, tuple[bytes, str, str]] = {}
+    reference_keys: dict[str, str] = {}
     for asset in selected_assets:
         render = object_value(asset.get("render"), f"asset {asset['id']} render")
         require({"desktop", "mobile"} <= set(render), f"asset {asset['id']} requires desktop and mobile render expectations")
+        asset_id = str(asset["id"])
+        approved_hash = str(asset["sha256"])
+        asset_key = hashlib.sha256(f"{asset_id}\0{approved_hash}".encode("utf-8")).hexdigest()
+        approved_path = safe_file(root, asset.get("path"), f"asset {asset_id} path")[1]
+        reference_payloads[asset_key] = (
+            approved_path.read_bytes(),
+            str(asset["media_type"]),
+            approved_hash,
+        )
+        reference_keys[asset_id] = asset_key
 
     browser = discover_browser()
     proof: dict[str, object] = {
@@ -768,8 +885,19 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
         "selected_asset_ids": selected_ids,
         "viewports": {},
     }
-    with serve(root) as url, ChromeSession(browser) as chrome:
+    with (
+        serve(root) as url,
+        serve_reference_assets(reference_payloads) as reference_origin,
+        ChromeSession(browser) as chrome,
+        ChromeSession(browser) as reference_chrome,
+    ):
         approved_origin = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
+        proof["reference_trust_boundary"] = {
+            "origin": reference_origin,
+            "separate_application_origin": reference_origin != approved_origin,
+            "independent_browser_profile": True,
+            "application_content_served": False,
+        }
         for viewport_name in ("desktop", "mobile"):
             viewport = object_value(viewports.get(viewport_name), f"viewports.{viewport_name}")
             result, screenshot = inspect_viewport(chrome, url, viewport_name, viewport, selected_assets, semantics)
@@ -826,11 +954,15 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                         abs(actual_dimension - expected) <= tolerance,
                         f"selected {asset_id} {dimension} does not match approved proposal at {viewport_name}",
                     )
-                require(
-                    actual.get("referenceError") in {"", None},
-                    f"selected {asset_id} browser-native reference sampling failed at {viewport_name}",
+                reference_samples = trusted_reference_samples(
+                    reference_chrome,
+                    reference_origin,
+                    reference_keys[asset_id],
+                    viewport_name,
+                    viewport,
+                    actual,
                 )
-                coverage = screenshot_asset_coverage(screenshot, actual.get("referenceSamples"))
+                coverage = screenshot_asset_coverage(screenshot, reference_samples)
                 require(
                     coverage >= 0.9,
                     f"selected {asset_id} screenshot coverage is below 90% at {viewport_name}",
@@ -842,9 +974,8 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                         dimension: actual[dimension] for dimension in ("x", "y", "width", "height")
                     },
                     "pixel_coverage": round(coverage, 6),
-                    "reference_sample_count": len(
-                        list_value(actual.get("referenceSamples"), "asset reference samples")
-                    ),
+                    "reference_sample_count": len(reference_samples),
+                    "reference_origin": reference_origin,
                 }
                 print(f"PASS: selected {asset_id} rendered at {viewport_name}")
 

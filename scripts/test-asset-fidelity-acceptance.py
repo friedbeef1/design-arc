@@ -375,6 +375,22 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertIn(expected, result.stderr)
 
+    def test_selected_asset_requires_its_exact_stable_id_in_implementation_source(self) -> None:
+        """A selector rewritten around an unapproved marker must not replace source-level ID proof."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-stable-asset-id-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace('data-design-arc-asset="platform.journey"', 'data-design-arc-asset="not-approved-id"')
+            (root / "index.html").write_text(html, encoding="utf-8")
+            manifest["asset_sets"]["platform"][0]["selector"] = '[data-design-arc-asset="not-approved-id"]'
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "selected asset stable ID is not referenced by implementation source: platform.journey",
+            result.stderr,
+        )
+
     def test_required_raster_is_blocked_without_native_image_generation(self) -> None:
         """Allowing a raster substitute on a non-image runtime must break this rejection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-raster-block-") as temp:
@@ -400,7 +416,7 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
                     html = (root / "index.html").read_text(encoding="utf-8")
                     start = html.index('    <img data-design-arc-asset="platform.journey"')
                     end = html.index("\n", start)
-                    html = html[:start] + "    <!-- assets/platform-journey.png remains approved -->" + html[end:]
+                    html = html[:start] + "    <!-- platform.journey uses assets/platform-journey.png -->" + html[end:]
                     (root / "index.html").write_text(html, encoding="utf-8")
                     expected = "selected platform.journey is absent from running application at desktop"
                 result = run_validator(root, manifest)
@@ -495,6 +511,47 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("semantic control #continue must be an interactive native control", result.stderr)
 
+    def test_offscreen_native_control_cannot_decoy_for_visible_flattened_control(self) -> None:
+        """A focusable native decoy must not satisfy semantics while a raster substitute is visible."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-semantic-decoy-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace(
+                '<button id="continue" type="button">Continue</button>',
+                '<button id="continue" type="button" style="position:fixed;left:-10000px;top:-10000px">Continue</button>'
+                '<img src="assets/platform-journey.png" alt="Continue" style="width:120px;height:40px">',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "semantic control #continue is not visibly rendered at desktop",
+            result.stderr,
+        )
+
+    def test_pointer_transparent_flattened_substitute_cannot_cover_native_control(self) -> None:
+        """Visual coverage must notice a flattened substitute even when it ignores pointer input."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-semantic-covered-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace(
+                '<button id="continue" type="button">Continue</button>',
+                '<span style="position:relative;display:inline-block">'
+                '<button id="continue" type="button">Continue</button>'
+                '<img src="assets/platform-journey.png" alt="" '
+                'style="position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none">'
+                '</span>',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "semantic control #continue is not visibly rendered at desktop",
+            result.stderr,
+        )
+
     def test_asset_hidden_at_mobile_viewport_cannot_match_the_proposal(self) -> None:
         """Dropping either viewport inspection must break this rejection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-mobile-hidden-") as temp:
@@ -568,6 +625,28 @@ CanvasRenderingContext2D.prototype.getImageData = function () {
                 proof["viewports"][viewport]["assets"]["platform.journey"]["pixel_coverage"],
                 0.9,
             )
+
+    def test_evidence_output_cannot_alias_any_validation_input(self) -> None:
+        """Evidence output must fail closed before overwriting a source or asset, including symlink aliases."""
+        for label in ("source", "asset-symlink"):
+            with self.subTest(label=label), tempfile.TemporaryDirectory(prefix=f"design-arc-evidence-alias-{label}-") as temp:
+                root = Path(temp)
+                manifest = manifest_for(root, "platform")
+                manifest_path = write_manifest(root, manifest)
+                source_path = root / "index.html"
+                asset_path = root / "assets/platform-journey.png"
+                protected = (manifest_path, source_path, asset_path)
+                before = {path: path.read_bytes() for path in protected}
+                if label == "source":
+                    evidence_output = source_path
+                else:
+                    evidence_output = root / "browser-proof.json"
+                    evidence_output.symlink_to(asset_path)
+                result = run_validator(root, manifest, evidence_output=evidence_output)
+                after = {path: path.read_bytes() for path in protected}
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("evidence output aliases a validation input", result.stderr)
+                self.assertEqual(before, after, "validator changed a protected input before rejecting the alias")
 
     def test_missing_supported_browser_fails_with_a_clear_action(self) -> None:
         """Silently skipping browser proof when no browser exists must break this rejection."""

@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, Thread
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import struct
@@ -82,6 +83,26 @@ def safe_file(root: Path, relative: object, label: str) -> tuple[str, Path]:
 
 def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def contains_exact_source_reference(source: str, value: str) -> bool:
+    """Match a complete stable ID or path rather than a longer lookalike token."""
+    reference_character = r"A-Za-z0-9_.-"
+    return re.search(
+        rf"(?<![{reference_character}]){re.escape(value)}(?![{reference_character}])",
+        source,
+    ) is not None
+
+
+def paths_alias(first: Path, second: Path) -> bool:
+    """Recognize lexical, resolved-symlink, and existing hard-link aliases."""
+    first_resolved = first.resolve()
+    second_resolved = second.resolve()
+    if first_resolved == second_resolved:
+        return True
+    if first.exists() and second.exists():
+        return os.path.samefile(first, second)
+    return False
 
 
 def discover_browser() -> Path:
@@ -422,6 +443,58 @@ PROBE_FUNCTION = r"""
     if (previous && previous.focus) previous.focus({preventScroll: true});
     return focused;
   };
+  const paintedElementFromPoint = (x, y) => {
+    const restored = [];
+    for (const candidate of document.querySelectorAll('*')) {
+      const candidateStyle = getComputedStyle(candidate);
+      if (candidateStyle.pointerEvents !== 'none' || candidateStyle.display === 'none' ||
+          candidateStyle.visibility === 'hidden' || Number(candidateStyle.opacity) <= 0) continue;
+      const rect = candidate.getBoundingClientRect();
+      if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) continue;
+      restored.push([
+        candidate,
+        candidate.style.getPropertyValue('pointer-events'),
+        candidate.style.getPropertyPriority('pointer-events'),
+      ]);
+      candidate.style.setProperty('pointer-events', 'auto', 'important');
+    }
+    const hit = document.elementFromPoint(x, y);
+    for (const [candidate, value, priority] of restored) {
+      if (value) candidate.style.setProperty('pointer-events', value, priority);
+      else candidate.style.removeProperty('pointer-events');
+    }
+    return hit;
+  };
+  const visibilityProof = element => {
+    for (let current = element; current && current.nodeType === Node.ELEMENT_NODE; current = current.parentElement) {
+      const currentStyle = getComputedStyle(current);
+      if (currentStyle.display === 'none' || currentStyle.visibility === 'hidden' ||
+          currentStyle.visibility === 'collapse' || Number(currentStyle.opacity) <= 0) {
+        return {visible: false, coverage: 0};
+      }
+    }
+    const rect = element.getBoundingClientRect();
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(innerWidth, rect.right);
+    const bottom = Math.min(innerHeight, rect.bottom);
+    if (rect.width <= 0 || rect.height <= 0 || right <= left || bottom <= top) {
+      return {visible: false, coverage: 0};
+    }
+    let exposed = 0;
+    let sampled = 0;
+    for (let row = 0; row < 3; row += 1) {
+      for (let column = 0; column < 5; column += 1) {
+        const x = left + ((column + 0.5) / 5) * (right - left);
+        const y = top + ((row + 0.5) / 3) * (bottom - top);
+        const hit = paintedElementFromPoint(x, y);
+        sampled += 1;
+        if (hit === element || element.contains(hit)) exposed += 1;
+      }
+    }
+    const coverage = sampled ? exposed / sampled : 0;
+    return {visible: coverage >= 0.5, coverage};
+  };
   const assets = spec.assets.map(expected => {
     const element = document.querySelector(expected.selector);
     if (!element) return {id: expected.id, found: false};
@@ -458,6 +531,7 @@ PROBE_FUNCTION = r"""
     const labelTarget = element.tagName.toLowerCase() === 'label'
       ? (element.htmlFor ? document.getElementById(element.htmlFor) : element.querySelector('input, select, textarea, button'))
       : null;
+    const visibility = visibilityProof(element);
     return {
       selector: expected.selector,
       found: true,
@@ -466,8 +540,12 @@ PROBE_FUNCTION = r"""
       name: accessibleName(element),
       interactive: isInteractive(element),
       focusable: canFocus(element),
+      visible: visibility.visible,
+      visibilityCoverage: visibility.coverage,
       labelAssociated: Boolean(labelTarget),
-      navigationFocusable: navigationTargets.some(target => isInteractive(target) && canFocus(target)),
+      navigationFocusable: navigationTargets.some(
+        target => isInteractive(target) && canFocus(target) && visibilityProof(target).visible
+      ),
     };
   });
   return {viewport: {width: innerWidth, height: innerHeight}, assets, semantics};
@@ -805,6 +883,15 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
         require(path.is_file(), f"implementation source is unavailable: {name}")
         source_text[name] = path.read_text(encoding="utf-8")
 
+    protected_inputs = {manifest_path.resolve(), *(path.resolve() for _, path in implementation_sources)}
+    for assets in parsed_sets.values():
+        for asset in assets:
+            protected_inputs.add(safe_file(root, asset.get("path"), f"asset {asset.get('id')} path")[1].resolve())
+    if evidence_output is not None:
+        evidence_candidate = evidence_output.expanduser()
+        if any(paths_alias(evidence_candidate, protected) for protected in protected_inputs):
+            raise ValidationError("evidence output aliases a validation input")
+
     for set_name, assets in parsed_sets.items():
         for asset in assets:
             asset_id = text_value(asset.get("id"), "asset.id")
@@ -831,11 +918,23 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                 ]
                 require(bool(references), f"selected asset has no implementation source reference: {asset_id}")
                 require(all(name in source_text for name in references), f"selected asset references an undeclared implementation source: {asset_id}")
-                if not any(relative in source_text[name] for name in references):
+                path_references = [
+                    name
+                    for name in references
+                    if contains_exact_source_reference(source_text[name], relative)
+                ]
+                if not path_references:
                     raise ValidationError(f"selected asset is not referenced by implementation source: {asset_id}")
+                if not any(
+                    contains_exact_source_reference(source_text[name], asset_id)
+                    for name in path_references
+                ):
+                    raise ValidationError(
+                        f"selected asset stable ID is not referenced by implementation source: {asset_id}"
+                    )
                 text_value(asset.get("selector"), f"asset {asset_id} selector")
                 text_value(asset.get("alt"), f"asset {asset_id} alt")
-            elif any(relative in text for text in source_text.values()):
+            elif any(contains_exact_source_reference(text, relative) for text in source_text.values()):
                 raise ValidationError(f"unselected {set_name} asset is referenced by implementation source: {asset_id}")
 
     semantics = [
@@ -995,6 +1094,10 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                     f"semantic {kind} {selector} must render as {expected_element}",
                 )
                 require(actual.get("name") == requirement.get("name"), f"semantic {kind} {selector} has no matching accessible name")
+                require(
+                    actual.get("visible") is True,
+                    f"semantic {kind} {selector} is not visibly rendered at {viewport_name}",
+                )
                 if kind == "control":
                     require(
                         actual.get("interactive") is True and actual.get("focusable") is True,

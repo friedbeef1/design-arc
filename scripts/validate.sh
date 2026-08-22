@@ -59,6 +59,8 @@ for required_file in \
   scripts/check-antigravity-runtime-contracts.py \
   scripts/check_repository_hygiene.py \
   scripts/compose-design-arc-skills.py \
+  scripts/validate-asset-fidelity.py \
+  scripts/test-asset-fidelity-acceptance.py \
   scripts/test-design-arc-docs.sh \
   scripts/test-design-arc-identity.sh \
   scripts/test-plugin-install.sh \
@@ -115,6 +117,7 @@ python3 "$repo_root/scripts/check-claude-state-contracts.py"
 python3 "$repo_root/scripts/check-antigravity-runtime-contracts.py"
 python3 "$repo_root/scripts/test-workflow-contracts.py"
 python3 "$repo_root/scripts/test-runtime-visualization-contracts.py"
+python3 "$repo_root/scripts/test-asset-fidelity-acceptance.py"
 python3 "$repo_root/scripts/test-claude-state-contracts.py"
 python3 "$repo_root/scripts/test-antigravity-runtime-contracts.py"
 python3 "$repo_root/scripts/compose-design-arc-skills.py" --platform codex --check
@@ -206,6 +209,8 @@ python3 - \
   "$repo_root/scripts/check-antigravity-runtime-contracts.py" \
   "$repo_root/scripts/check_repository_hygiene.py" \
   "$repo_root/scripts/compose-design-arc-skills.py" \
+  "$repo_root/scripts/validate-asset-fidelity.py" \
+  "$repo_root/scripts/test-asset-fidelity-acceptance.py" \
   "$repo_root/scripts/test-graph-records.py" \
   "$repo_root/scripts/test-claude-package.py" \
   "$repo_root/scripts/test-antigravity-package.py" \

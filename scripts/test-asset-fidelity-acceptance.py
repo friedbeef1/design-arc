@@ -4,14 +4,20 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from contextlib import contextmanager
+import functools
 import hashlib
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
+import signal
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 import zlib
 
@@ -49,6 +55,7 @@ def app_html(asset_id: str, asset_path: str) -> str:
   <title>Design Arc asset proof</title>
   <style>
     body {{ margin: 0; background: #11130f; color: #f3ead8; font: 18px sans-serif; }}
+    nav {{ height: 40px; }}
     main {{ padding: 24px; }}
     [data-design-arc-asset] {{ display: block; width: 320px; height: 160px; object-fit: fill; }}
     @media (max-width: 600px) {{
@@ -94,8 +101,8 @@ def manifest_for(root: Path, selected: str = "platform") -> dict[str, object]:
             "selector": f'[data-design-arc-asset="{set_name}.journey"]',
             "alt": "Evidence-backed onboarding journey",
             "render": {
-                "desktop": {"width": 320, "height": 160, "tolerance": 1},
-                "mobile": {"width": 240, "height": 120, "tolerance": 1},
+                "desktop": {"x": 24, "y": 64, "width": 320, "height": 160, "tolerance": 1},
+                "mobile": {"x": 24, "y": 64, "width": 240, "height": 120, "tolerance": 1},
             },
         }
 
@@ -139,10 +146,14 @@ def run_validator(
     manifest: dict[str, object],
     *,
     environment: dict[str, str] | None = None,
+    evidence_output: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
     manifest_path = write_manifest(root, manifest)
+    command = [sys.executable, str(VALIDATOR), str(manifest_path)]
+    if evidence_output is not None:
+        command.extend(["--evidence-output", str(evidence_output)])
     return subprocess.run(
-        [sys.executable, str(VALIDATOR), str(manifest_path)],
+        command,
         cwd=REPO_ROOT,
         text=True,
         capture_output=True,
@@ -150,6 +161,52 @@ def run_validator(
         env=environment,
         timeout=45,
     )
+
+
+class QuietHandler(SimpleHTTPRequestHandler):
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+
+@contextmanager
+def serve_directory(root: Path):
+    handler = functools.partial(QuietHandler, directory=str(root))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def install_hybrid_app(root: Path, manifest: dict[str, object]) -> None:
+    manifest["selection"] = {
+        "design": "hybrid",
+        "hybrid_approved": True,
+        "asset_ids": ["platform.journey", "stitch.journey"],
+    }
+    html = (root / "index.html").read_text(encoding="utf-8")
+    html = html.replace(
+        '<img data-design-arc-asset="stitch.journey"',
+        '<img data-design-arc-asset="platform.journey" src="assets/platform-journey.png" '
+        'alt="Evidence-backed onboarding journey">\n'
+        '    <img data-design-arc-asset="stitch.journey"',
+    )
+    (root / "index.html").write_text(html, encoding="utf-8")
+    stitch = manifest["asset_sets"]["stitch"][0]
+    stitch["render"]["desktop"]["y"] = 224
+    stitch["render"]["mobile"]["y"] = 184
+
+
+def process_is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 class AssetFidelityAcceptanceTests(unittest.TestCase):
@@ -175,23 +232,65 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="design-arc-hybrid-") as temp:
             root = Path(temp)
             manifest = manifest_for(root, "stitch")
-            manifest["selection"] = {
-                "design": "hybrid",
-                "hybrid_approved": True,
-                "asset_ids": ["platform.journey", "stitch.journey"],
-            }
-            html = (root / "index.html").read_text(encoding="utf-8")
-            html = html.replace(
-                '<img data-design-arc-asset="stitch.journey"',
-                '<img data-design-arc-asset="platform.journey" src="assets/platform-journey.png" '
-                'alt="Evidence-backed onboarding journey">\n'
-                '    <img data-design-arc-asset="stitch.journey"',
-            )
-            (root / "index.html").write_text(html, encoding="utf-8")
+            install_hybrid_app(root, manifest)
             result = run_validator(root, manifest)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("selected platform.journey rendered at desktop", result.stdout)
         self.assertIn("selected stitch.journey rendered at mobile", result.stdout)
+
+    def test_runtime_rejects_same_path_asset_from_a_second_live_origin(self) -> None:
+        """Comparing only a URL path must allow this wrong-origin substitution."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-wrong-origin-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            with serve_directory(root) as foreign_origin:
+                html = (root / "index.html").read_text(encoding="utf-8")
+                html = html.replace(
+                    'src="assets/platform-journey.png"',
+                    f'src="{foreign_origin}/assets/platform-journey.png"',
+                    1,
+                )
+                (root / "index.html").write_text(html, encoding="utf-8")
+                result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("selected platform.journey loaded from an unapproved origin at desktop", result.stderr)
+
+    def test_acceptance_viewports_cannot_be_self_declared(self) -> None:
+        """Trusting manifest viewport values must allow these weaker proofs."""
+        cases = (
+            ("desktop", {"width": 1024, "height": 720}, "desktop viewport must be exactly 1280x720"),
+            ("mobile", {"width": 400, "height": 800}, "mobile viewport must be exactly 390x844"),
+        )
+        for viewport, dimensions, expected in cases:
+            with self.subTest(viewport=viewport), tempfile.TemporaryDirectory(prefix=f"design-arc-{viewport}-") as temp:
+                root = Path(temp)
+                manifest = manifest_for(root, "platform")
+                manifest["viewports"][viewport] = dimensions
+                result = run_validator(root, manifest)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn(expected, result.stderr)
+
+    def test_hybrid_selection_cannot_omit_a_required_asset(self) -> None:
+        """Skipping required-set completeness for hybrids must allow this omission."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-hybrid-omission-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "stitch")
+            install_hybrid_app(root, manifest)
+            second = root / "assets/platform-supporting.png"
+            second.write_bytes(png_bytes(32, 16, (10, 20, 30)))
+            required_asset = dict(manifest["asset_sets"]["platform"][0])
+            required_asset.update(
+                {
+                    "id": "platform.supporting",
+                    "path": "assets/platform-supporting.png",
+                    "sha256": sha256(second),
+                    "selector": '[data-design-arc-asset="platform.supporting"]',
+                }
+            )
+            manifest["asset_sets"]["platform"].append(required_asset)
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("hybrid selection omits a required asset: platform.supporting", result.stderr)
 
     def test_selection_and_provenance_violations_are_rejected(self) -> None:
         """Removing set binding or hybrid approval must make these manifests fail."""
@@ -319,6 +418,42 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("semantic control #continue must render as button", result.stderr)
 
+    def test_manifest_cannot_self_approve_inert_or_nonexistent_semantics(self) -> None:
+        """Trusting manifest element names must allow invalid anchors and invented status tags."""
+        cases = ("inert-anchor", "invented-status", "inert-navigation")
+        for label in cases:
+            with self.subTest(label=label), tempfile.TemporaryDirectory(prefix=f"design-arc-{label}-") as temp:
+                root = Path(temp)
+                manifest = manifest_for(root, "platform")
+                html = (root / "index.html").read_text(encoding="utf-8")
+                if label == "inert-anchor":
+                    html = html.replace(
+                        '<button id="continue" type="button">Continue</button>',
+                        '<a id="continue">Continue</a>',
+                    )
+                    control = next(item for item in manifest["semantic_requirements"] if item["selector"] == "#continue")
+                    control["element"] = "a"
+                    control.pop("focusable", None)
+                    expected = "semantic control #continue must be an interactive native control"
+                elif label == "invented-status":
+                    html = html.replace(
+                        '<output id="status" aria-label="Ready">Ready</output>',
+                        '<status id="status" aria-label="Ready">Ready</status>',
+                    )
+                    status = next(item for item in manifest["semantic_requirements"] if item["selector"] == "#status")
+                    status["element"] = "status"
+                    expected = "semantic status #status must use a native status element"
+                else:
+                    html = html.replace(
+                        '<nav aria-label="Primary"><a href="#review">Review</a></nav>',
+                        '<nav aria-label="Primary">Primary</nav>',
+                    )
+                    expected = "semantic navigation nav has no focusable navigation target at desktop"
+                (root / "index.html").write_text(html, encoding="utf-8")
+                result = run_validator(root, manifest)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn(expected, result.stderr)
+
     def test_required_control_must_remain_keyboard_focusable(self) -> None:
         """Dropping actual focus verification must allow this disabled control."""
         with tempfile.TemporaryDirectory(prefix="design-arc-focus-") as temp:
@@ -332,7 +467,7 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             (root / "index.html").write_text(html, encoding="utf-8")
             result = run_validator(root, manifest)
         self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("semantic control #continue is not focusable at desktop", result.stderr)
+        self.assertIn("semantic control #continue must be an interactive native control", result.stderr)
 
     def test_asset_hidden_at_mobile_viewport_cannot_match_the_proposal(self) -> None:
         """Dropping either viewport inspection must break this rejection."""
@@ -349,6 +484,39 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("selected platform.journey is not visibly rendered at mobile", result.stderr)
 
+    def test_screenshot_pixels_reject_pointer_transparent_occlusion(self) -> None:
+        """DOM visibility and center hit-testing alone must allow this fully painted overlay."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-screenshot-overlay-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            html = (root / "index.html").read_text(encoding="utf-8")
+            html = html.replace(
+                "</body>",
+                '<div style="position:fixed;left:24px;top:64px;width:320px;height:160px;'
+                'background:#000;z-index:99;pointer-events:none"></div></body>',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("selected platform.journey screenshot coverage is below 90% at desktop", result.stderr)
+
+    def test_success_retains_real_screenshot_hashes_and_asset_coverage(self) -> None:
+        """Removing screenshot capture or content comparison must erase this proof result."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-screenshot-proof-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            evidence = root / "browser-proof.json"
+            result = run_validator(root, manifest, evidence_output=evidence)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            proof = json.loads(evidence.read_text(encoding="utf-8"))
+        self.assertEqual(set(proof["viewports"]), {"desktop", "mobile"})
+        for viewport in ("desktop", "mobile"):
+            self.assertRegex(proof["viewports"][viewport]["screenshot_sha256"], r"^[0-9a-f]{64}$")
+            self.assertGreaterEqual(
+                proof["viewports"][viewport]["assets"]["platform.journey"]["pixel_coverage"],
+                0.9,
+            )
+
     def test_missing_supported_browser_fails_with_a_clear_action(self) -> None:
         """Silently skipping browser proof when no browser exists must break this rejection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-no-browser-") as temp:
@@ -358,6 +526,64 @@ class AssetFidelityAcceptanceTests(unittest.TestCase):
             result = run_validator(root, manifest_for(root, "platform"), environment=environment)
         self.assertNotEqual(result.returncode, 0, result.stdout)
         self.assertIn("DESIGN_ARC_BROWSER does not name an executable Chrome or Chromium browser", result.stderr)
+
+    def test_enter_stage_failure_cleans_live_browser_process_and_profile(self) -> None:
+        """Raising during DevTools connection must not leak the launched process or profile."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-enter-cleanup-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "platform")
+            pid_path = root / "fake-browser.pid"
+            profile_path = root / "fake-browser.profile"
+            fake_browser = root / "fake-browser.py"
+            fake_browser.write_text(
+                f"""#!{sys.executable}
+import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import os
+from pathlib import Path
+import sys
+
+port = int(next(value.split('=', 1)[1] for value in sys.argv if value.startswith('--remote-debugging-port=')))
+profile = next(value.split('=', 1)[1] for value in sys.argv if value.startswith('--user-data-dir='))
+Path(os.environ['DESIGN_ARC_FAKE_PID']).write_text(str(os.getpid()), encoding='utf-8')
+Path(os.environ['DESIGN_ARC_FAKE_PROFILE']).write_text(profile, encoding='utf-8')
+
+class Handler(BaseHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+    def do_GET(self):
+        body = json.dumps([{{'type': 'page', 'webSocketDebuggerUrl': 'ws://127.0.0.1:1/devtools/page/fail'}}]).encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+HTTPServer(('127.0.0.1', port), Handler).serve_forever()
+""",
+                encoding="utf-8",
+            )
+            fake_browser.chmod(0o755)
+            environment = dict(os.environ)
+            environment.update(
+                {
+                    "DESIGN_ARC_BROWSER": str(fake_browser),
+                    "DESIGN_ARC_FAKE_PID": str(pid_path),
+                    "DESIGN_ARC_FAKE_PROFILE": str(profile_path),
+                }
+            )
+            result = run_validator(root, manifest, environment=environment)
+            pid = int(pid_path.read_text(encoding="utf-8"))
+            launched_profile = Path(profile_path.read_text(encoding="utf-8"))
+            time.sleep(0.2)
+            alive = process_is_alive(pid)
+            profile_exists = launched_profile.exists()
+            if alive:
+                os.kill(pid, signal.SIGTERM)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn("Connection refused", result.stderr)
+        self.assertFalse(alive, "browser process leaked after __enter__ failure")
+        self.assertFalse(profile_exists, "browser profile leaked after __enter__ failure")
 
 
 def main() -> int:

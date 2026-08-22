@@ -23,6 +23,7 @@ import time
 from typing import Iterator
 from urllib.parse import urlparse
 from urllib.request import urlopen
+import zlib
 
 
 SCHEMA = "design-arc.asset-fidelity/v1"
@@ -35,12 +36,13 @@ RASTER_TYPES = {
     "image/tiff",
 }
 SEMANTIC_KINDS = {"control", "label", "navigation", "state", "status"}
+FIXED_VIEWPORTS = {"desktop": (1280, 720), "mobile": (390, 844)}
 NATIVE_ELEMENTS = {
     "control": {"button", "input", "select", "textarea", "a"},
     "label": {"label"},
     "navigation": {"nav"},
-    "state": {"input", "select", "details", "progress", "meter"},
-    "status": {"output", "status"},
+    "state": {"input", "select"},
+    "status": {"output"},
 }
 
 
@@ -241,62 +243,73 @@ class ChromeSession:
         self.profile: tempfile.TemporaryDirectory[str] | None = None
 
     def __enter__(self) -> "ChromeSession":
-        port = free_port()
-        self.profile = tempfile.TemporaryDirectory(prefix="design-arc-chrome-")
-        command = [
-            str(self.browser),
-            "--headless=new",
-            "--disable-background-networking",
-            "--disable-component-update",
-            "--disable-default-apps",
-            "--disable-extensions",
-            "--disable-gpu",
-            "--hide-scrollbars",
-            "--no-default-browser-check",
-            "--no-first-run",
-            "--remote-allow-origins=*",
-            f"--remote-debugging-port={port}",
-            f"--user-data-dir={self.profile.name}",
-            "about:blank",
-        ]
-        if hasattr(os, "geteuid") and os.geteuid() == 0:
-            command.insert(1, "--no-sandbox")
-        self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        pages: list[dict[str, object]] | None = None
-        deadline = time.monotonic() + 12
-        while time.monotonic() < deadline:
-            if self.process.poll() is not None:
-                raise ValidationError("supported browser exited before DevTools became ready")
-            try:
-                with urlopen(f"http://127.0.0.1:{port}/json/list", timeout=1) as response:
-                    value = json.load(response)
-                if isinstance(value, list) and value:
-                    pages = value
-                    break
-            except (OSError, ValueError):
-                time.sleep(0.1)
-        require(pages is not None, "supported browser did not expose DevTools within 12 seconds")
-        page = next((item for item in pages if item.get("type") == "page"), None)
-        require(isinstance(page, dict), "supported browser did not expose a page target")
-        websocket_url = page.get("webSocketDebuggerUrl")
-        require(isinstance(websocket_url, str), "supported browser omitted its page DevTools URL")
-        self.socket = WebSocket(websocket_url)
-        self.call("Page.enable")
-        self.call("Runtime.enable")
-        return self
+        try:
+            port = free_port()
+            self.profile = tempfile.TemporaryDirectory(prefix="design-arc-chrome-")
+            command = [
+                str(self.browser),
+                "--headless=new",
+                "--disable-background-networking",
+                "--disable-component-update",
+                "--disable-default-apps",
+                "--disable-extensions",
+                "--disable-gpu",
+                "--hide-scrollbars",
+                "--no-default-browser-check",
+                "--no-first-run",
+                "--remote-allow-origins=*",
+                f"--remote-debugging-port={port}",
+                f"--user-data-dir={self.profile.name}",
+                "about:blank",
+            ]
+            if hasattr(os, "geteuid") and os.geteuid() == 0:
+                command.insert(1, "--no-sandbox")
+            self.process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            pages: list[dict[str, object]] | None = None
+            deadline = time.monotonic() + 12
+            while time.monotonic() < deadline:
+                if self.process.poll() is not None:
+                    raise ValidationError("supported browser exited before DevTools became ready")
+                try:
+                    with urlopen(f"http://127.0.0.1:{port}/json/list", timeout=1) as response:
+                        value = json.load(response)
+                    if isinstance(value, list) and value:
+                        pages = value
+                        break
+                except (OSError, ValueError):
+                    time.sleep(0.1)
+            require(pages is not None, "supported browser did not expose DevTools within 12 seconds")
+            page = next((item for item in pages if item.get("type") == "page"), None)
+            require(isinstance(page, dict), "supported browser did not expose a page target")
+            websocket_url = page.get("webSocketDebuggerUrl")
+            require(isinstance(websocket_url, str), "supported browser omitted its page DevTools URL")
+            self.socket = WebSocket(websocket_url)
+            self.call("Page.enable")
+            self.call("Runtime.enable")
+            return self
+        except BaseException:
+            self._cleanup()
+            raise
 
     def __exit__(self, _type: object, _value: object, _traceback: object) -> None:
+        self._cleanup()
+
+    def _cleanup(self) -> None:
         if self.socket is not None:
             self.socket.close()
+            self.socket = None
         if self.process is not None:
-            self.process.terminate()
-            try:
-                self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.process.kill()
-                self.process.wait(timeout=5)
+            if self.process.poll() is None:
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait(timeout=5)
+            self.process = None
         if self.profile is not None:
             self.profile.cleanup()
+            self.profile = None
 
     def call(self, method: str, params: dict[str, object] | None = None) -> dict[str, object]:
         require(self.socket is not None, "browser DevTools is not connected")
@@ -343,6 +356,20 @@ PROBE_FUNCTION = r"""
     if (alt) return alt.trim();
     return (element.textContent || '').trim();
   };
+  const isInteractive = element => {
+    const tag = element.tagName.toLowerCase();
+    if (tag === 'a') return element.hasAttribute('href');
+    if (tag === 'button' || tag === 'select' || tag === 'textarea') return !element.disabled;
+    if (tag === 'input') return element.type !== 'hidden' && !element.disabled;
+    return false;
+  };
+  const canFocus = element => {
+    const previous = document.activeElement;
+    element.focus({preventScroll: true});
+    const focused = document.activeElement === element;
+    if (previous && previous.focus) previous.focus({preventScroll: true});
+    return focused;
+  };
   const assets = spec.assets.map(expected => {
     const element = document.querySelector(expected.selector);
     if (!element) return {id: expected.id, found: false};
@@ -359,6 +386,8 @@ PROBE_FUNCTION = r"""
       complete: element.complete === true,
       naturalWidth: Number(element.naturalWidth || 0),
       naturalHeight: Number(element.naturalHeight || 0),
+      x: rect.left,
+      y: rect.top,
       width: rect.width,
       height: rect.height,
       alt: element.getAttribute('alt') || '',
@@ -371,17 +400,22 @@ PROBE_FUNCTION = r"""
   const semantics = spec.semantics.map(expected => {
     const element = document.querySelector(expected.selector);
     if (!element) return {selector: expected.selector, found: false};
-    const previous = document.activeElement;
-    element.focus({preventScroll: true});
-    const focusable = document.activeElement === element;
-    if (previous && previous.focus) previous.focus({preventScroll: true});
+    const navigationTargets = Array.from(element.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])'
+    ));
+    const labelTarget = element.tagName.toLowerCase() === 'label'
+      ? (element.htmlFor ? document.getElementById(element.htmlFor) : element.querySelector('input, select, textarea, button'))
+      : null;
     return {
       selector: expected.selector,
       found: true,
       tag: element.tagName.toLowerCase(),
       role: element.getAttribute('role') || '',
       name: accessibleName(element),
-      focusable,
+      interactive: isInteractive(element),
+      focusable: canFocus(element),
+      labelAssociated: Boolean(labelTarget),
+      navigationFocusable: navigationTargets.some(target => isInteractive(target) && canFocus(target)),
     };
   });
   return {viewport: {width: innerWidth, height: innerHeight}, assets, semantics};
@@ -394,6 +428,127 @@ def screenshot_dimensions(data: bytes) -> tuple[int, int]:
     return struct.unpack(">II", data[16:24])
 
 
+def paeth(left: int, above: int, upper_left: int) -> int:
+    estimate = left + above - upper_left
+    left_distance = abs(estimate - left)
+    above_distance = abs(estimate - above)
+    upper_left_distance = abs(estimate - upper_left)
+    if left_distance <= above_distance and left_distance <= upper_left_distance:
+        return left
+    if above_distance <= upper_left_distance:
+        return above
+    return upper_left
+
+
+def decode_png(data: bytes, label: str) -> tuple[int, int, bytes]:
+    """Decode an 8-bit, non-interlaced RGB/RGBA PNG into RGBA bytes."""
+    require(data.startswith(b"\x89PNG\r\n\x1a\n"), f"{label} is not a PNG")
+    offset = 8
+    width = height = bit_depth = color_type = interlace = None
+    compressed = bytearray()
+    while offset + 12 <= len(data):
+        length = struct.unpack(">I", data[offset : offset + 4])[0]
+        kind = data[offset + 4 : offset + 8]
+        body = data[offset + 8 : offset + 8 + length]
+        require(offset + 12 + length <= len(data), f"{label} has a truncated PNG chunk")
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type, _compression, _filter, interlace = struct.unpack(
+                ">IIBBBBB", body
+            )
+        elif kind == b"IDAT":
+            compressed.extend(body)
+        elif kind == b"IEND":
+            break
+        offset += 12 + length
+    require(
+        isinstance(width, int) and isinstance(height, int) and width > 0 and height > 0,
+        f"{label} has no valid PNG dimensions",
+    )
+    require(bit_depth == 8 and color_type in {2, 6} and interlace == 0, f"{label} must be an 8-bit non-interlaced RGB/RGBA PNG")
+    channels = 3 if color_type == 2 else 4
+    stride = width * channels
+    try:
+        raw = zlib.decompress(bytes(compressed))
+    except zlib.error as exc:
+        raise ValidationError(f"{label} PNG pixels are corrupt") from exc
+    require(len(raw) == height * (stride + 1), f"{label} PNG scanline length is invalid")
+    rows: list[bytearray] = []
+    cursor = 0
+    previous = bytearray(stride)
+    for _row in range(height):
+        filter_type = raw[cursor]
+        cursor += 1
+        encoded = raw[cursor : cursor + stride]
+        cursor += stride
+        reconstructed = bytearray(stride)
+        for index, value in enumerate(encoded):
+            left = reconstructed[index - channels] if index >= channels else 0
+            above = previous[index]
+            upper_left = previous[index - channels] if index >= channels else 0
+            if filter_type == 0:
+                prediction = 0
+            elif filter_type == 1:
+                prediction = left
+            elif filter_type == 2:
+                prediction = above
+            elif filter_type == 3:
+                prediction = (left + above) // 2
+            elif filter_type == 4:
+                prediction = paeth(left, above, upper_left)
+            else:
+                raise ValidationError(f"{label} uses unsupported PNG filter {filter_type}")
+            reconstructed[index] = (value + prediction) & 0xFF
+        rows.append(reconstructed)
+        previous = reconstructed
+    rgba = bytearray(width * height * 4)
+    destination = 0
+    for row in rows:
+        for source in range(0, len(row), channels):
+            rgba[destination : destination + 3] = row[source : source + 3]
+            rgba[destination + 3] = row[source + 3] if channels == 4 else 255
+            destination += 4
+    return width, height, bytes(rgba)
+
+
+def rgba_pixel(pixels: bytes, width: int, x: int, y: int) -> tuple[int, int, int, int]:
+    offset = (y * width + x) * 4
+    return tuple(pixels[offset : offset + 4])  # type: ignore[return-value]
+
+
+def screenshot_asset_coverage(
+    screenshot: bytes,
+    approved_asset: bytes,
+    rectangle: dict[str, object],
+) -> float:
+    screen_width, screen_height, screen_pixels = decode_png(screenshot, "browser screenshot")
+    asset_width, asset_height, asset_pixels = decode_png(approved_asset, "approved asset")
+    x = float(rectangle["x"])
+    y = float(rectangle["y"])
+    width = float(rectangle["width"])
+    height = float(rectangle["height"])
+    matches = 0
+    compared = 0
+    columns = 20
+    rows = 10
+    for row in range(rows):
+        vertical = (row + 0.5) / rows
+        screen_y = min(screen_height - 1, max(0, int(y + vertical * height)))
+        asset_y = min(asset_height - 1, int(vertical * asset_height))
+        for column in range(columns):
+            horizontal = (column + 0.5) / columns
+            screen_x = min(screen_width - 1, max(0, int(x + horizontal * width)))
+            asset_x = min(asset_width - 1, int(horizontal * asset_width))
+            expected = rgba_pixel(asset_pixels, asset_width, asset_x, asset_y)
+            if expected[3] < 250:
+                continue
+            actual = rgba_pixel(screen_pixels, screen_width, screen_x, screen_y)
+            compared += 1
+            if max(abs(actual[channel] - expected[channel]) for channel in range(3)) <= 16:
+                matches += 1
+    require(compared >= 100, "approved asset has insufficient opaque pixel coverage for screenshot proof")
+    return matches / compared
+
+
 def inspect_viewport(
     chrome: ChromeSession,
     url: str,
@@ -401,7 +556,7 @@ def inspect_viewport(
     viewport: dict[str, object],
     selected_assets: list[dict[str, object]],
     semantics: list[dict[str, object]],
-) -> dict[str, object]:
+) -> tuple[dict[str, object], bytes]:
     width = viewport.get("width")
     height = viewport.get("height")
     require(isinstance(width, int) and width >= 320, f"{viewport_name} viewport width must be at least 320")
@@ -440,10 +595,10 @@ def inspect_viewport(
         screenshot_dimensions(screenshot) == (width, height),
         f"browser {viewport_name} screenshot must be {width}x{height}",
     )
-    return result
+    return result, screenshot
 
 
-def validate_manifest(manifest_path: Path) -> None:
+def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) -> None:
     require(manifest_path.is_file(), f"manifest is unavailable: {manifest_path}")
     root = manifest_path.resolve().parent
     try:
@@ -499,8 +654,11 @@ def validate_manifest(manifest_path: Path) -> None:
         for asset in parsed_sets[set_name]
         if asset.get("required") is True
     }
-    if design != "hybrid":
-        require(required_selected <= set(selected_ids), "selection omits a required asset from the selected design")
+    missing_required = sorted(required_selected - set(selected_ids))
+    if missing_required:
+        if design == "hybrid":
+            raise ValidationError(f"hybrid selection omits a required asset: {missing_required[0]}")
+        raise ValidationError(f"selection omits a required asset from the selected design: {missing_required[0]}")
 
     implementation_sources = [
         safe_file(root, value, "implementation_sources item")
@@ -560,16 +718,41 @@ def validate_manifest(manifest_path: Path) -> None:
         text_value(requirement.get("name"), f"semantic {kind} name")
 
     viewports = object_value(manifest.get("viewports"), "viewports")
+    for viewport_name, expected_dimensions in FIXED_VIEWPORTS.items():
+        viewport = object_value(viewports.get(viewport_name), f"viewports.{viewport_name}")
+        actual_dimensions = (viewport.get("width"), viewport.get("height"))
+        require(
+            actual_dimensions == expected_dimensions,
+            f"{viewport_name} viewport must be exactly {expected_dimensions[0]}x{expected_dimensions[1]}",
+        )
     selected_assets = [assets_by_id[asset_id][1] for asset_id in selected_ids]
     for asset in selected_assets:
         render = object_value(asset.get("render"), f"asset {asset['id']} render")
         require({"desktop", "mobile"} <= set(render), f"asset {asset['id']} requires desktop and mobile render expectations")
 
     browser = discover_browser()
+    proof: dict[str, object] = {
+        "schema": "design-arc.asset-fidelity-proof/v1",
+        "manifest_sha256": file_sha256(manifest_path),
+        "selected_design": design,
+        "selected_asset_ids": selected_ids,
+        "viewports": {},
+    }
     with serve(root) as url, ChromeSession(browser) as chrome:
+        approved_origin = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
         for viewport_name in ("desktop", "mobile"):
             viewport = object_value(viewports.get(viewport_name), f"viewports.{viewport_name}")
-            result = inspect_viewport(chrome, url, viewport_name, viewport, selected_assets, semantics)
+            result, screenshot = inspect_viewport(chrome, url, viewport_name, viewport, selected_assets, semantics)
+            viewport_proof: dict[str, object] = {
+                "width": viewport["width"],
+                "height": viewport["height"],
+                "screenshot_sha256": hashlib.sha256(screenshot).hexdigest(),
+                "assets": {},
+            }
+            print(
+                f"PASS: {viewport_name} screenshot sha256 "
+                f"{viewport_proof['screenshot_sha256']}"
+            )
             actual_assets = {
                 item.get("id"): item
                 for item in list_value(result.get("assets"), f"browser {viewport_name} assets")
@@ -582,8 +765,13 @@ def validate_manifest(manifest_path: Path) -> None:
                 require(actual.get("tag") == "img", f"selected {asset_id} must render as an image at {viewport_name}")
                 actual_src = text_value(actual.get("src"), f"selected {asset_id} browser source")
                 expected_path = str(asset["path"])
+                parsed_source = urlparse(actual_src)
                 require(
-                    urlparse(actual_src).path.lstrip("/") == expected_path,
+                    f"{parsed_source.scheme}://{parsed_source.netloc}" == approved_origin,
+                    f"selected {asset_id} loaded from an unapproved origin at {viewport_name}",
+                )
+                require(
+                    parsed_source.path.lstrip("/") == expected_path,
                     f"selected {asset_id} is substituted in the running application at {viewport_name}",
                 )
                 require(
@@ -598,15 +786,30 @@ def validate_manifest(manifest_path: Path) -> None:
                 )
                 tolerance = expected_render.get("tolerance", 0)
                 require(isinstance(tolerance, (int, float)) and tolerance >= 0, f"asset {asset_id} render tolerance must be non-negative")
-                for dimension in ("width", "height"):
+                for dimension in ("x", "y", "width", "height"):
                     expected = expected_render.get(dimension)
                     actual_dimension = actual.get(dimension)
-                    require(isinstance(expected, (int, float)) and expected > 0, f"asset {asset_id} expected {dimension} must be positive")
+                    minimum = 0 if dimension in {"x", "y"} else 0.000001
+                    require(isinstance(expected, (int, float)) and expected >= minimum, f"asset {asset_id} expected {dimension} is invalid")
                     require(isinstance(actual_dimension, (int, float)), f"asset {asset_id} browser {dimension} is invalid")
                     require(
                         abs(actual_dimension - expected) <= tolerance,
                         f"selected {asset_id} {dimension} does not match approved proposal at {viewport_name}",
                     )
+                approved_path = safe_file(root, asset.get("path"), f"asset {asset_id} path")[1]
+                coverage = screenshot_asset_coverage(screenshot, approved_path.read_bytes(), actual)
+                require(
+                    coverage >= 0.9,
+                    f"selected {asset_id} screenshot coverage is below 90% at {viewport_name}",
+                )
+                object_value(viewport_proof["assets"], "viewport proof assets")[asset_id] = {
+                    "approved_sha256": asset["sha256"],
+                    "loaded_url": actual_src,
+                    "rectangle": {
+                        dimension: actual[dimension] for dimension in ("x", "y", "width", "height")
+                    },
+                    "pixel_coverage": round(coverage, 6),
+                }
                 print(f"PASS: selected {asset_id} rendered at {viewport_name}")
 
             actual_semantics = {
@@ -625,8 +828,33 @@ def validate_manifest(manifest_path: Path) -> None:
                     f"semantic {kind} {selector} must render as {expected_element}",
                 )
                 require(actual.get("name") == requirement.get("name"), f"semantic {kind} {selector} has no matching accessible name")
-                if requirement.get("focusable") is True:
+                if kind == "control":
+                    require(
+                        actual.get("interactive") is True and actual.get("focusable") is True,
+                        f"semantic control {selector} must be an interactive native control",
+                    )
+                elif kind == "state":
+                    require(
+                        actual.get("interactive") is True and actual.get("focusable") is True,
+                        f"semantic state {selector} must be an interactive focusable native state",
+                    )
+                elif kind == "navigation":
+                    require(
+                        actual.get("navigationFocusable") is True,
+                        f"semantic navigation {selector} has no focusable navigation target at {viewport_name}",
+                    )
+                elif kind == "label":
+                    require(
+                        actual.get("labelAssociated") is True,
+                        f"semantic label {selector} is not associated with a native control at {viewport_name}",
+                    )
+                if requirement.get("focusable") is True and kind not in {"control", "state"}:
                     require(actual.get("focusable") is True, f"semantic {kind} {selector} is not focusable at {viewport_name}")
+            object_value(proof["viewports"], "proof viewports")[viewport_name] = viewport_proof
+
+    if evidence_output is not None:
+        evidence_output.parent.mkdir(parents=True, exist_ok=True)
+        evidence_output.write_text(json.dumps(proof, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     print("PASS: asset fidelity matches approved proposal at desktop and mobile viewports")
 
@@ -636,12 +864,21 @@ def parse_args() -> argparse.Namespace:
         description="Validate source integration and desktop/mobile browser fidelity for a selected Design Arc asset set."
     )
     parser.add_argument("manifest", type=Path, help="Path to design-arc.asset-fidelity/v1 JSON manifest")
+    parser.add_argument(
+        "--evidence-output",
+        type=Path,
+        help="Optional path for screenshot hashes, approved hashes, rectangles, and pixel coverage proof",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     try:
-        validate_manifest(parse_args().manifest.resolve())
+        args = parse_args()
+        validate_manifest(
+            args.manifest.resolve(),
+            args.evidence_output.resolve() if args.evidence_output is not None else None,
+        )
     except (ValidationError, OSError, ValueError, TypeError) as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1

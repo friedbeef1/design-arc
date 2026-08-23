@@ -12,6 +12,7 @@ from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, Thread
 import json
 import os
 from pathlib import Path
+import posixpath
 import re
 import shutil
 import socket
@@ -22,7 +23,7 @@ import tempfile
 import threading
 import time
 from typing import Iterator
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 from urllib.request import urlopen
 import zlib
 
@@ -92,6 +93,19 @@ def contains_exact_source_reference(source: str, value: str) -> bool:
         rf"(?<![{reference_character}]){re.escape(value)}(?![{reference_character}])",
         source,
     ) is not None
+
+
+def canonical_served_path(value: str) -> str:
+    """Normalize a requested URL path the same way SimpleHTTPRequestHandler serves it."""
+    decoded = unquote(urlparse(value).path, errors="surrogatepass")
+    normalized = posixpath.normpath(decoded)
+    words = [word for word in normalized.split("/") if word]
+    safe_words = [
+        word
+        for word in words
+        if word not in {os.curdir, os.pardir} and not os.path.dirname(word)
+    ]
+    return "/".join(safe_words)
 
 
 def paths_alias(first: Path, second: Path) -> bool:
@@ -359,6 +373,7 @@ class ChromeSession:
             self.socket = WebSocket(websocket_url)
             self.call("Page.enable")
             self.call("Runtime.enable")
+            self.call("Network.enable")
             return self
         except BaseException:
             self._cleanup()
@@ -413,6 +428,23 @@ class ChromeSession:
             if "method" in message:
                 self.events.append(message)
         raise ValidationError(f"browser did not emit {method}")
+
+    def request_urls(self, loader_id: str) -> list[str]:
+        """Return validator-owned request evidence for one page navigation."""
+        urls: list[str] = []
+        for event in self.events:
+            if event.get("method") != "Network.requestWillBeSent":
+                continue
+            params = event.get("params")
+            if not isinstance(params, dict) or params.get("loaderId") != loader_id:
+                continue
+            request = params.get("request")
+            if not isinstance(request, dict):
+                continue
+            url = request.get("url")
+            if isinstance(url, str) and url:
+                urls.append(url)
+        return list(dict.fromkeys(urls))
 
 
 PROBE_FUNCTION = r"""
@@ -755,7 +787,7 @@ def inspect_viewport(
     selected_assets: list[dict[str, object]],
     known_assets: list[dict[str, object]],
     semantics: list[dict[str, object]],
-) -> tuple[dict[str, object], bytes]:
+) -> tuple[dict[str, object], bytes, list[str]]:
     width = viewport.get("width")
     height = viewport.get("height")
     require(isinstance(width, int) and width >= 320, f"{viewport_name} viewport width must be at least 320")
@@ -764,7 +796,8 @@ def inspect_viewport(
         "Emulation.setDeviceMetricsOverride",
         {"width": width, "height": height, "deviceScaleFactor": 1, "mobile": viewport_name == "mobile"},
     )
-    chrome.call("Page.navigate", {"url": f"{url}?viewport={viewport_name}"})
+    navigation = chrome.call("Page.navigate", {"url": f"{url}?viewport={viewport_name}"})
+    loader_id = text_value(navigation.get("loaderId"), f"browser {viewport_name} navigation loader ID")
     chrome.wait_event("Page.loadEventFired")
     spec = {
         "assets": [
@@ -798,7 +831,7 @@ def inspect_viewport(
         screenshot_dimensions(screenshot) == (width, height),
         f"browser {viewport_name} screenshot must be {width}x{height}",
     )
-    return result, screenshot
+    return result, screenshot, chrome.request_urls(loader_id)
 
 
 def trusted_reference_samples(
@@ -1035,7 +1068,7 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
         }
         for viewport_name in ("desktop", "mobile"):
             viewport = object_value(viewports.get(viewport_name), f"viewports.{viewport_name}")
-            result, screenshot = inspect_viewport(
+            result, screenshot, request_urls = inspect_viewport(
                 chrome,
                 url,
                 viewport_name,
@@ -1098,6 +1131,12 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                         f"browser known asset {known_id} resource URLs",
                     )
                 ]
+                known_request_path = canonical_served_path(known_path)
+                network_request_urls = [
+                    value
+                    for value in request_urls
+                    if canonical_served_path(value) == known_request_path
+                ]
                 object_value(
                     viewport_proof["known_asset_inventory"],
                     "viewport proof known asset inventory",
@@ -1106,9 +1145,11 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                     "live_marker": marker_present,
                     "live_urls": live_urls,
                     "resource_urls": resource_urls,
+                    "network_request_urls": network_request_urls,
                 }
                 require(
-                    known_id in selected_ids or not (marker_present or live_urls or resource_urls),
+                    known_id in selected_ids
+                    or not (marker_present or live_urls or resource_urls or network_request_urls),
                     f"unselected known asset {known_id} is loaded or rendered "
                     f"in running application at {viewport_name}",
                 )

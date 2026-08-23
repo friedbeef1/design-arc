@@ -550,6 +550,71 @@ const assetId = ['stitch', 'journey'].join('.');
                     result.stderr,
                 )
 
+    def test_runtime_rejects_percent_encoded_unselected_asset_path(self) -> None:
+        """Comparing raw URL paths must not hide an encoded known asset request."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-runtime-encoded-path-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "stitch")
+            manifest["selection"] = {
+                "design": "platform",
+                "hybrid_approved": False,
+                "asset_ids": ["platform.journey"],
+            }
+            html = app_html("platform.journey", "assets/platform-journey.png")
+            html = html.replace(
+                "</body>",
+                """<script>
+const image = document.createElement('img');
+image.src = 'assets/%73titch-journey.png';
+image.alt = 'Unapproved encoded Stitch journey';
+document.body.append(image);
+</script>
+</body>""",
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "unselected known asset stitch.journey is loaded or rendered "
+            "in running application at desktop",
+            result.stderr,
+        )
+
+    def test_runtime_request_evidence_survives_resource_timing_clear(self) -> None:
+        """Page-controlled resource timing must not erase an unselected asset request."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-runtime-cleared-timing-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "stitch")
+            manifest["selection"] = {
+                "design": "platform",
+                "hybrid_approved": False,
+                "asset_ids": ["platform.journey"],
+            }
+            html = app_html("platform.journey", "assets/platform-journey.png")
+            html = html.replace(
+                "</body>",
+                """<script>
+const assetPath = ['assets', 'stitch-journey.png'].join('/');
+const image = document.createElement('img');
+image.src = assetPath;
+image.alt = 'Unapproved hidden Stitch journey';
+image.addEventListener('load', () => {
+  image.remove();
+  performance.clearResourceTimings();
+}, {once: true});
+document.body.append(image);
+</script>
+</body>""",
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "unselected known asset stitch.journey is loaded or rendered "
+            "in running application at desktop",
+            result.stderr,
+        )
+
     def test_hybrid_runtime_rejects_known_asset_outside_the_approved_selection(self) -> None:
         """Hybrid approval must not authorize known assets omitted from its explicit selection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-hybrid-unselected-runtime-") as temp:

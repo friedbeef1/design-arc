@@ -4,6 +4,8 @@ One Design Arc, available for Codex (live), Claude Code (alpha), and Google Anti
 
 Design Arc works in three AI coding platforms: Codex, Claude Code, and Google Antigravity. In this documentation, **your AI coding platform** means whichever of those three you are currently using.
 
+One line: Moving from Subjective Design Opinions to Well Grounded Expert Recommendations
+
 Product feedback is often vague, redesign discussions become subjective, and teams approve attractive screens without knowing whether the complete journey works.
 Move from uncertain product feedback to a complete design direction grounded in credible sources.
 Design Arc audits the real journey, checks decisions against current first-party platform guidance and inspected real-product journeys, recommends the strongest path, and designs every important state before implementation begins.

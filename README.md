@@ -46,11 +46,9 @@ The product and workflow are shared. Start with Design Arc, then use the runtime
 
 ## You need Design Arc if…
 
-- Feedback such as “this feels confusing” keeps producing circular discussion instead of a testable product decision.
-- Stakeholders disagree based on taste because no shared objective or evidence distinguishes the alternatives.
-- Redesigns improve isolated screens without proving the complete journey, transitions, or recovery paths.
-- Loading, empty, error, success, and recovery states are repeatedly omitted until implementation.
-- Your team wants a strong recommendation without surrendering approval control.
+1. Feedback such as “this feels confusing” is just way too vague.
+2. Taste is too subjective and not well grounded in expert or user opinions
+3. Redesigns improve isolated screens without taking into account the complete user journey
 
 ## What Design Arc produces
 

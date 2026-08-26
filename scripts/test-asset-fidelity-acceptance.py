@@ -615,6 +615,72 @@ document.body.append(image);
             result.stderr,
         )
 
+    def test_runtime_rejects_unselected_asset_loaded_by_descendant_frame(self) -> None:
+        """Filtering request evidence to the main loader must not hide iframe assets."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-runtime-iframe-asset-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "stitch")
+            manifest["selection"] = {
+                "design": "platform",
+                "hybrid_approved": False,
+                "asset_ids": ["platform.journey"],
+            }
+            (root / "frame.html").write_text(
+                """<!doctype html><meta charset="utf-8">
+<img src="assets/stitch-journey.png" alt="Unapproved framed Stitch journey">
+""",
+                encoding="utf-8",
+            )
+            html = app_html("platform.journey", "assets/platform-journey.png")
+            html = html.replace(
+                "</body>",
+                '<iframe src="frame.html" title="Additional proposal"></iframe>\n</body>',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "unselected known asset stitch.journey is loaded or rendered "
+            "in running application at desktop",
+            result.stderr,
+        )
+
+    def test_runtime_ignores_cross_origin_asset_with_known_local_path(self) -> None:
+        """Path-only matching must not confuse an unrelated origin with a local asset."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-runtime-cross-origin-") as temp:
+            root = Path(temp) / "application"
+            foreign_root = Path(temp) / "foreign"
+            foreign_asset = foreign_root / "assets/stitch-journey.png"
+            foreign_asset.parent.mkdir(parents=True)
+            foreign_asset.write_bytes(png_bytes(64, 32, (28, 180, 120)))
+            manifest = manifest_for(root, "stitch")
+            manifest["selection"] = {
+                "design": "platform",
+                "hybrid_approved": False,
+                "asset_ids": ["platform.journey"],
+            }
+            with serve_directory(foreign_root) as foreign_origin:
+                html = app_html("platform.journey", "assets/platform-journey.png")
+                html = html.replace(
+                    "</body>",
+                    f"""<script>
+const foreignOrigin = {json.dumps(foreign_origin)};
+const foreignPath = ['assets', 'stitch-journey.png'].join('/');
+const foreignImage = document.createElement('img');
+foreignImage.src = foreignOrigin + '/' + foreignPath;
+foreignImage.alt = 'Unrelated cross-origin image';
+document.body.append(foreignImage);
+</script>
+</body>""",
+                )
+                (root / "index.html").write_text(html, encoding="utf-8")
+                result = run_validator(root, manifest)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(
+            "PASS: asset fidelity matches approved proposal at desktop and mobile viewports",
+            result.stdout,
+        )
+
     def test_hybrid_runtime_rejects_known_asset_outside_the_approved_selection(self) -> None:
         """Hybrid approval must not authorize known assets omitted from its explicit selection."""
         with tempfile.TemporaryDirectory(prefix="design-arc-hybrid-unselected-runtime-") as temp:

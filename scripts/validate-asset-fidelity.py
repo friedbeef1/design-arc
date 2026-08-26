@@ -430,13 +430,31 @@ class ChromeSession:
         raise ValidationError(f"browser did not emit {method}")
 
     def request_urls(self, loader_id: str) -> list[str]:
-        """Return validator-owned request evidence for one page navigation."""
+        """Return validator-owned request evidence for a page and its frames."""
+        frame_tree = self.call("Page.getFrameTree").get("frameTree")
+        require(isinstance(frame_tree, dict), "browser did not return a frame tree")
+        loader_ids: set[str] = set()
+
+        def collect_loaders(tree: dict[str, object]) -> None:
+            frame = tree.get("frame")
+            require(isinstance(frame, dict), "browser frame tree contained an invalid frame")
+            frame_loader_id = frame.get("loaderId")
+            if isinstance(frame_loader_id, str) and frame_loader_id:
+                loader_ids.add(frame_loader_id)
+            children = tree.get("childFrames", [])
+            require(isinstance(children, list), "browser frame tree contained invalid child frames")
+            for child in children:
+                require(isinstance(child, dict), "browser frame tree contained an invalid child frame")
+                collect_loaders(child)
+
+        collect_loaders(frame_tree)
+        require(loader_id in loader_ids, "browser frame tree no longer matches page navigation")
         urls: list[str] = []
         for event in self.events:
             if event.get("method") != "Network.requestWillBeSent":
                 continue
             params = event.get("params")
-            if not isinstance(params, dict) or params.get("loaderId") != loader_id:
+            if not isinstance(params, dict) or params.get("loaderId") not in loader_ids:
                 continue
             request = params.get("request")
             if not isinstance(request, dict):
@@ -572,7 +590,9 @@ PROBE_FUNCTION = r"""
     .filter(value => typeof value === 'string' && value.length > 0);
   const urlsForPath = (urls, path) => Array.from(new Set(urls.filter(value => {
     try {
-      return new URL(value, document.baseURI).pathname.replace(/^\/+/, '') === path;
+      const parsed = new URL(value, document.baseURI);
+      return parsed.origin === spec.applicationOrigin &&
+        parsed.pathname.replace(/^\/+/, '') === path;
     } catch (_) {
       return false;
     }
@@ -800,6 +820,7 @@ def inspect_viewport(
     loader_id = text_value(navigation.get("loaderId"), f"browser {viewport_name} navigation loader ID")
     chrome.wait_event("Page.loadEventFired")
     spec = {
+        "applicationOrigin": f"{urlparse(url).scheme}://{urlparse(url).netloc}",
         "assets": [
             {"id": asset["id"], "selector": asset["selector"]}
             for asset in selected_assets
@@ -1135,7 +1156,8 @@ def validate_manifest(manifest_path: Path, evidence_output: Path | None = None) 
                 network_request_urls = [
                     value
                     for value in request_urls
-                    if canonical_served_path(value) == known_request_path
+                    if f"{urlparse(value).scheme}://{urlparse(value).netloc}" == approved_origin
+                    and canonical_served_path(value) == known_request_path
                 ]
                 object_value(
                     viewport_proof["known_asset_inventory"],

@@ -645,6 +645,37 @@ document.body.append(image);
             result.stderr,
         )
 
+    def test_runtime_rejects_unselected_asset_loaded_by_detached_descendant_frame(self) -> None:
+        """A frame cannot evade validator-owned evidence by removing itself after loading."""
+        with tempfile.TemporaryDirectory(prefix="design-arc-runtime-detached-iframe-asset-") as temp:
+            root = Path(temp)
+            manifest = manifest_for(root, "stitch")
+            manifest["selection"] = {
+                "design": "platform",
+                "hybrid_approved": False,
+                "asset_ids": ["platform.journey"],
+            }
+            (root / "frame.html").write_text(
+                """<!doctype html><meta charset="utf-8">
+<img src="assets/stitch-journey.png" alt="Unapproved transient Stitch journey">
+<script>addEventListener('load', () => frameElement.remove())</script>
+""",
+                encoding="utf-8",
+            )
+            html = app_html("platform.journey", "assets/platform-journey.png")
+            html = html.replace(
+                "</body>",
+                '<iframe src="frame.html" title="Transient proposal"></iframe>\n</body>',
+            )
+            (root / "index.html").write_text(html, encoding="utf-8")
+            result = run_validator(root, manifest)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertIn(
+            "unselected known asset stitch.journey is loaded or rendered "
+            "in running application at desktop",
+            result.stderr,
+        )
+
     def test_runtime_ignores_cross_origin_asset_with_known_local_path(self) -> None:
         """Path-only matching must not confuse an unrelated origin with a local asset."""
         with tempfile.TemporaryDirectory(prefix="design-arc-runtime-cross-origin-") as temp:

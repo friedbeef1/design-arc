@@ -433,11 +433,15 @@ class ChromeSession:
         """Return validator-owned request evidence for a page and its frames."""
         frame_tree = self.call("Page.getFrameTree").get("frameTree")
         require(isinstance(frame_tree, dict), "browser did not return a frame tree")
+        frame_ids: set[str] = set()
         loader_ids: set[str] = set()
 
         def collect_loaders(tree: dict[str, object]) -> None:
             frame = tree.get("frame")
             require(isinstance(frame, dict), "browser frame tree contained an invalid frame")
+            frame_id = frame.get("id")
+            require(isinstance(frame_id, str) and frame_id, "browser frame tree contained a frame without an ID")
+            frame_ids.add(frame_id)
             frame_loader_id = frame.get("loaderId")
             if isinstance(frame_loader_id, str) and frame_loader_id:
                 loader_ids.add(frame_loader_id)
@@ -449,12 +453,47 @@ class ChromeSession:
 
         collect_loaders(frame_tree)
         require(loader_id in loader_ids, "browser frame tree no longer matches page navigation")
+
+        changed = True
+        while changed:
+            changed = False
+            for event in self.events:
+                params = event.get("params")
+                if not isinstance(params, dict):
+                    continue
+                if event.get("method") == "Page.frameAttached":
+                    parent_id = params.get("parentFrameId")
+                    frame_id = params.get("frameId")
+                elif event.get("method") == "Page.frameNavigated":
+                    frame = params.get("frame")
+                    if not isinstance(frame, dict):
+                        continue
+                    parent_id = frame.get("parentId")
+                    frame_id = frame.get("id")
+                else:
+                    continue
+                if parent_id in frame_ids and isinstance(frame_id, str) and frame_id not in frame_ids:
+                    frame_ids.add(frame_id)
+                    changed = True
+
+        for event in self.events:
+            if event.get("method") != "Network.requestWillBeSent":
+                continue
+            params = event.get("params")
+            if not isinstance(params, dict) or params.get("frameId") not in frame_ids:
+                continue
+            event_loader_id = params.get("loaderId")
+            if isinstance(event_loader_id, str) and event_loader_id:
+                loader_ids.add(event_loader_id)
+
         urls: list[str] = []
         for event in self.events:
             if event.get("method") != "Network.requestWillBeSent":
                 continue
             params = event.get("params")
-            if not isinstance(params, dict) or params.get("loaderId") not in loader_ids:
+            if not isinstance(params, dict) or params.get("frameId") not in frame_ids:
+                continue
+            if params.get("loaderId") not in loader_ids:
                 continue
             request = params.get("request")
             if not isinstance(request, dict):
@@ -816,6 +855,7 @@ def inspect_viewport(
         "Emulation.setDeviceMetricsOverride",
         {"width": width, "height": height, "deviceScaleFactor": 1, "mobile": viewport_name == "mobile"},
     )
+    chrome.events.clear()
     navigation = chrome.call("Page.navigate", {"url": f"{url}?viewport={viewport_name}"})
     loader_id = text_value(navigation.get("loaderId"), f"browser {viewport_name} navigation loader ID")
     chrome.wait_event("Page.loadEventFired")

@@ -433,31 +433,37 @@ class ChromeSession:
         """Return validator-owned request evidence for a page and its frames."""
         frame_tree = self.call("Page.getFrameTree").get("frameTree")
         require(isinstance(frame_tree, dict), "browser did not return a frame tree")
-        frame_ids: set[str] = set()
-        loader_ids: set[str] = set()
+        root_frame = frame_tree.get("frame")
+        require(isinstance(root_frame, dict), "browser frame tree contained an invalid root frame")
+        root_frame_id = root_frame.get("id")
+        require(isinstance(root_frame_id, str) and root_frame_id, "browser root frame has no ID")
+        require(
+            root_frame.get("loaderId") == loader_id,
+            "browser frame tree no longer matches page navigation",
+        )
 
-        def collect_loaders(tree: dict[str, object]) -> None:
-            frame = tree.get("frame")
-            require(isinstance(frame, dict), "browser frame tree contained an invalid frame")
-            frame_id = frame.get("id")
-            require(isinstance(frame_id, str) and frame_id, "browser frame tree contained a frame without an ID")
-            frame_ids.add(frame_id)
-            frame_loader_id = frame.get("loaderId")
-            if isinstance(frame_loader_id, str) and frame_loader_id:
-                loader_ids.add(frame_loader_id)
-            children = tree.get("childFrames", [])
-            require(isinstance(children, list), "browser frame tree contained invalid child frames")
-            for child in children:
-                require(isinstance(child, dict), "browser frame tree contained an invalid child frame")
-                collect_loaders(child)
-
-        collect_loaders(frame_tree)
-        require(loader_id in loader_ids, "browser frame tree no longer matches page navigation")
+        navigation_start: int | None = None
+        for index, event in enumerate(self.events):
+            if event.get("method") != "Page.frameNavigated":
+                continue
+            params = event.get("params")
+            if not isinstance(params, dict):
+                continue
+            frame = params.get("frame")
+            if not isinstance(frame, dict):
+                continue
+            if frame.get("id") == root_frame_id and frame.get("loaderId") == loader_id:
+                navigation_start = index
+                break
+        require(navigation_start is not None, "browser did not report the current main-frame navigation")
+        navigation_events = self.events[navigation_start:]
+        frame_ids = {root_frame_id}
+        loader_ids = {loader_id}
 
         changed = True
         while changed:
             changed = False
-            for event in self.events:
+            for event in navigation_events:
                 params = event.get("params")
                 if not isinstance(params, dict):
                     continue
@@ -472,22 +478,22 @@ class ChromeSession:
                     frame_id = frame.get("id")
                 else:
                     continue
-                if parent_id in frame_ids and isinstance(frame_id, str) and frame_id not in frame_ids:
+                if parent_id not in frame_ids or not isinstance(frame_id, str):
+                    continue
+                if frame_id not in frame_ids:
                     frame_ids.add(frame_id)
                     changed = True
-
-        for event in self.events:
-            if event.get("method") != "Network.requestWillBeSent":
-                continue
-            params = event.get("params")
-            if not isinstance(params, dict) or params.get("frameId") not in frame_ids:
-                continue
-            event_loader_id = params.get("loaderId")
-            if isinstance(event_loader_id, str) and event_loader_id:
-                loader_ids.add(event_loader_id)
+                if frame_id == root_frame_id:
+                    continue
+                if event.get("method") == "Page.frameNavigated":
+                    frame = params["frame"]
+                    require(isinstance(frame, dict), "browser frame navigation contained an invalid frame")
+                    descendant_loader_id = frame.get("loaderId")
+                    if isinstance(descendant_loader_id, str) and descendant_loader_id:
+                        loader_ids.add(descendant_loader_id)
 
         urls: list[str] = []
-        for event in self.events:
+        for event in navigation_events:
             if event.get("method") != "Network.requestWillBeSent":
                 continue
             params = event.get("params")

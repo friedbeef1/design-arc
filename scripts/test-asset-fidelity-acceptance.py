@@ -9,6 +9,7 @@ import base64
 import functools
 import hashlib
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -214,6 +215,45 @@ def process_is_alive(pid: int) -> bool:
 
 
 class AssetFidelityAcceptanceTests(unittest.TestCase):
+    def test_request_evidence_excludes_stale_main_navigation_event(self) -> None:
+        """A delayed prior request cannot leak through a persistent main frame ID."""
+        module_spec = importlib.util.spec_from_file_location("asset_fidelity_validator", VALIDATOR)
+        self.assertIsNotNone(module_spec)
+        self.assertIsNotNone(module_spec.loader)
+        validator = importlib.util.module_from_spec(module_spec)
+        module_spec.loader.exec_module(validator)
+        session = object.__new__(validator.ChromeSession)
+        session.events = [
+            {
+                "method": "Network.requestWillBeSent",
+                "params": {
+                    "frameId": "main-frame",
+                    "loaderId": "prior-loader",
+                    "request": {"url": "http://application.test/assets/stale.png"},
+                },
+            },
+            {
+                "method": "Page.frameNavigated",
+                "params": {"frame": {"id": "main-frame", "loaderId": "current-loader"}},
+            },
+            {
+                "method": "Network.requestWillBeSent",
+                "params": {
+                    "frameId": "main-frame",
+                    "loaderId": "current-loader",
+                    "request": {"url": "http://application.test/assets/current.png"},
+                },
+            },
+        ]
+        session.call = lambda method: {
+            "frameTree": {"frame": {"id": "main-frame", "loaderId": "current-loader"}}
+        }
+
+        self.assertEqual(
+            session.request_urls("current-loader"),
+            ["http://application.test/assets/current.png"],
+        )
+
     def test_platform_selection_matches_exact_asset_on_desktop_and_mobile(self) -> None:
         """Removing browser rendering or either viewport proof must break this pass."""
         with tempfile.TemporaryDirectory(prefix="design-arc-platform-") as temp:

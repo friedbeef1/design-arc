@@ -122,6 +122,14 @@ REQUIRED_CONTRACTS = {
         "Stitch is a visualization tool, not an evidence authority.",
         "The active host must validate returned screens and apply the existing proposal-wide correction loop of up to three correction rounds.",
     ),
+    "Both concurrent orchestration": (
+        "When the user selects `Both`, start the AI coding platform visualization and the Stitch visualization concurrently from the same approved specification.",
+        "Do not begin any correction round until both initial renders have finished successfully.",
+        "After both initial renders finish, inspect each renderer independently against the same approved specification and record a separate conformance matrix and renderer-specific verdict before cross-comparing them.",
+        "Treat `Both` as one paired proposal with one shared correction-round counter: at most three proposal-wide correction rounds total, not three rounds per renderer.",
+        "For each paired correction round, send renderer-specific correction batches concurrently to every renderer that has repairable drift, wait for every requested correction render to finish, then reinspect each renderer independently before comparing the pair.",
+        "If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback.",
+    ),
     "project home resolution": (
         "Call `list_projects` before any home lookup or creation and resolve the current saved project's `projectId` and saved-project name; use the workspace-folder name only when the saved-project name is unavailable.",
         "The canonical title is `Design Arc — <Project Name>`.",

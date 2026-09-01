@@ -23,6 +23,15 @@ ASSET_FIDELITY_CONTRACTS = (
     "Return `matches approved proposal` only after both source integration and rendered fidelity pass: verify exact selected-asset imports and references, then inspect the running application at desktop and mobile viewports for correct loading and visual fidelity.",
 )
 
+BOTH_VISUALIZATION_CONTRACTS = (
+    "When the user selects `Both`, start the AI coding platform visualization and the Stitch visualization concurrently from the same approved specification.",
+    "Do not begin any correction round until both initial renders have finished successfully.",
+    "After both initial renders finish, inspect each renderer independently against the same approved specification and record a separate conformance matrix and renderer-specific verdict before cross-comparing them.",
+    "Treat `Both` as one paired proposal with one shared correction-round counter: at most three proposal-wide correction rounds total, not three rounds per renderer.",
+    "For each paired correction round, send renderer-specific correction batches concurrently to every renderer that has repairable drift, wait for every requested correction render to finish, then reinspect each renderer independently before comparing the pair.",
+    "If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback.",
+)
+
 
 def require(source: str, fragment: str, label: str) -> None:
     if fragment not in source:
@@ -83,6 +92,13 @@ def test_shared_stitch_validation_contract() -> None:
         require(source, "up to three correction rounds", "three-round active-host validation")
 
 
+def test_shared_both_visualization_contract() -> None:
+    for path in (CODEX_SKILL, CLAUDE_SKILL, ANTIGRAVITY_SKILL):
+        source = path.read_text(encoding="utf-8")
+        for fragment in BOTH_VISUALIZATION_CONTRACTS:
+            require(source, fragment, f"Both visualization orchestration in {path}")
+
+
 def test_shared_selected_asset_fidelity_contract() -> None:
     for path in (CODEX_SKILL, CLAUDE_SKILL, ANTIGRAVITY_SKILL):
         source = path.read_text(encoding="utf-8")
@@ -97,6 +113,8 @@ def main() -> int:
     print("PASS: Claude visualization contract")
     test_shared_stitch_validation_contract()
     print("PASS: shared Stitch preparation and validation contract")
+    test_shared_both_visualization_contract()
+    print("PASS: shared Both visualization orchestration contract")
     test_shared_selected_asset_fidelity_contract()
     print("PASS: shared selected-design asset-fidelity contract")
     return 0

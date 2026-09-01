@@ -396,6 +396,30 @@ MUTATIONS = {
         "Both means create the Codex board and the Stitch visual workspace from the same approved journey.",
         "Offer only Stitch or Codex; do not offer both.",
     ),
+    "Both concurrent initial renders": (
+        "When the user selects `Both`, start the AI coding platform visualization and the Stitch visualization concurrently from the same approved specification.",
+        "When the user selects `Both`, render in Codex first and start Stitch only after Codex correction finishes.",
+    ),
+    "Both initial-render barrier": (
+        "Do not begin any correction round until both initial renders have finished successfully.",
+        "Begin correcting the first renderer as soon as it finishes, even while the other initial render is pending.",
+    ),
+    "Both independent inspection": (
+        "After both initial renders finish, inspect each renderer independently against the same approved specification and record a separate conformance matrix and renderer-specific verdict before cross-comparing them.",
+        "Use the preferred renderer as the standard for judging the other renderer.",
+    ),
+    "Both shared correction budget": (
+        "Treat `Both` as one paired proposal with one shared correction-round counter: at most three proposal-wide correction rounds total, not three rounds per renderer.",
+        "Give Codex and Stitch three independent correction rounds each.",
+    ),
+    "Both paired correction barrier": (
+        "For each paired correction round, send renderer-specific correction batches concurrently to every renderer that has repairable drift, wait for every requested correction render to finish, then reinspect each renderer independently before comparing the pair.",
+        "Correct and approve whichever renderer finishes each correction first.",
+    ),
+    "Both failure fallback": (
+        "If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback.",
+        "If one initial renderer fails, silently continue correcting and approving the completed renderer.",
+    ),
     "advisory transfer": (
         "A Stitch recommendation is advisory: never transfer automatically, and continuing in Codex remains available.",
         "Automatically transfer the proposal to Stitch after a trigger.",
@@ -820,7 +844,7 @@ GRAPH_MUTATIONS = {
 
 
 EXPECTED_GRAPH_MUTATION_COUNT = 24
-EXPECTED_TOTAL_MUTATION_COUNT = 204
+EXPECTED_TOTAL_MUTATION_COUNT = 210
 
 
 ORDERED_MUTATION_MARKERS = (

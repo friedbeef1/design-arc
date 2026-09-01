@@ -107,8 +107,8 @@ def test_check_enforces_version_parity_and_package_containment() -> None:
         result = run_composer("--check", "--platform", platform)
         require(result, f"{platform} composition check failed")
         report = json.loads(result.stdout)
-        if report["version"] != "1.5.2" or VERSION_FILE.read_text(encoding="utf-8").strip() != "1.5.2":
-            raise AssertionError(f"{platform} package version is not the shared 1.5.2 release")
+        if report["version"] != "1.5.3" or VERSION_FILE.read_text(encoding="utf-8").strip() != "1.5.3":
+            raise AssertionError(f"{platform} package version is not the shared 1.5.3 release")
         if report["external_references"]:
             raise AssertionError(f"{platform} skill escapes its package root: {report['external_references']}")
 

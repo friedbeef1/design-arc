@@ -32,7 +32,7 @@ Deterministic tests protect the written workflow contract, but they do not prove
 
 ## Claude Code, Claude Desktop, and MCP
 
-Design Arc 1.5.2 is packaged and verified for Claude Code. Its Claude package contains one skill and no agents, hooks, MCP servers, or LSP servers. The namespaced slash command and `.claude` project state belong to Claude Code.
+Design Arc 1.5.3 is packaged and verified for Claude Code. Its Claude package contains one skill and no agents, hooks, MCP servers, or LSP servers. The namespaced slash command and `.claude` project state belong to Claude Code.
 
 It is not a Claude Desktop chat extension and does not install or configure a Desktop MCP server. Claude Desktop’s Code surface may share Claude Code plugin settings, but this release does not claim Desktop visual or interaction QA. Claude Desktop chat MCP configuration is separate from Claude Code configuration. An MCP that happens to be configured in either product is still external to Design Arc and requires its own access, authentication, tool-use, and payload authorization.
 

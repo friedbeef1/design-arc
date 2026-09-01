@@ -27,8 +27,11 @@ BOTH_VISUALIZATION_CONTRACTS = (
     "When the user selects `Both`, start the AI coding platform visualization and the Stitch visualization concurrently from the same approved specification.",
     "Do not begin any correction round until both initial renders have finished successfully.",
     "After both initial renders finish, inspect each renderer independently against the same approved specification and record a separate conformance matrix and renderer-specific verdict before cross-comparing them.",
+    "After the independent comparison, record the active correction scope as `platform`, `stitch`, or `both` from the user's explicit choice; selecting `Both` for initial generation does not select both renderers for correction.",
+    "Correct only the renderer or renderers in the active correction scope, and preserve every unselected render and its independent inspection unchanged as comparison evidence.",
+    "Run corrections concurrently only when the active correction scope is `both`; when it is `platform` or `stitch`, run only that renderer and do not wait for or modify the other.",
     "Treat `Both` as one paired proposal with one shared correction-round counter: at most three proposal-wide correction rounds total, not three rounds per renderer.",
-    "For each paired correction round, send renderer-specific correction batches concurrently to every renderer that has repairable drift, wait for every requested correction render to finish, then reinspect each renderer independently before comparing the pair.",
+    "For a `both` correction round, send renderer-specific correction batches concurrently, wait for both requested correction renders to finish, then reinspect each renderer independently before comparing the pair.",
     "If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback.",
 )
 

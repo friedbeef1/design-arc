@@ -10,6 +10,17 @@ Design Arc is one product available for three platforms. Choose the edition for 
 
 Codex is the **Live** edition. Claude Code and Google Antigravity are **Alpha** editions. They use the same methodology, but their newer platform adapters are still maturing.
 
+## What you need
+
+| Option | What you need |
+| --- | --- |
+| Guidelines only | No paid external research service required |
+| Guidelines + Benchmarks | Mobbin Pro recommended for an individual |
+| Codex screens | No Stitch connection required |
+| Stitch or Both | Google Stitch account and API key |
+
+External pricing, availability, and quotas may change. Design Arc links to the current provider pages rather than hard-coding prices.
+
 ## Install in Codex
 
 [Install the Live Codex edition from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b).

@@ -27,15 +27,25 @@ That ordinary-language request is the recommended start. If you prefer a shortcu
 - An upfront choice between Codex, Stitch, or both, with both recommended for direct comparison.
 - Codex-specific preferences and review records under `.codex/`.
 
-## Guided Stitch connection
+## Guided external connections
 
-The Live Codex plugin already includes the Stitch MCP connection definition. You do not need to search for, select, or install a separate Stitch MCP.
+### Stitch
 
-When you choose Stitch or both at the upfront visualization decision, Codex verifies the bundled `https://stitch.googleapis.com/mcp` connection with a read-only project-list request. If credentials are missing, Codex prompts you to enter your key securely. To create one, open [Google Stitch](https://stitch.withgoogle.com/), then go to Profile Picture → **Stitch settings** → **API key** → **Create key**.
+GitHub marketplace installs include the Stitch connection definition. OpenAI Plugin Directory installs currently omit it, so Design Arc checks instead of assuming. Either route guides you to the same result; you do not need to search for an MCP.
+
+When you choose Stitch or both, Codex verifies `https://stitch.googleapis.com/mcp` with a read-only project-list request. If the Directory package omitted the connection, Design Arc offers **Connect Stitch now — recommended**, asks before configuring the endpoint and secure key reference in Codex, and then requests only the secure key-entry step.
+
+To create a key, open [Google Stitch](https://stitch.withgoogle.com/), then go to Profile Picture → **Stitch settings** → **API key** → **Create key**. You can also say: “Connect Stitch for Design Arc.”
 
 Never paste a Stitch API key into chat. Enter it only in Codex's secure credential prompt. Design Arc does not read it, put it in project files, save it in preferences, or include it in the plugin.
 
 Codex then verifies the connection again and resumes at the pending visual-workspace choice. A failed connection never blocks the normal Codex board; Design Arc reports the blocker and keeps Stitch optional.
+
+### Mobbin
+
+When you choose Guidelines + Benchmarks without verified access, Design Arc explains: Mobbin lets Design Arc inspect complete real-product journeys—not merely isolated screenshots. It offers **Connect Mobbin now — recommended**, Guidelines only for this review, or cancel.
+
+Use [Mobbin signup](https://mobbin.com/signup) and the live [Mobbin plans](https://mobbin.com/pricing) page. Pro is recommended for an individual because it includes the complete library and browsing flows. Team is for multiple collaborators and includes Pro capabilities. Design Arc never requests your password; it uses separately authorized browser access and verifies access by inspecting a relevant complete journey.
 
 ## State
 

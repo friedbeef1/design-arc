@@ -35,16 +35,18 @@ BOTH_VISUALIZATION_CONTRACTS = (
     "If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback.",
 )
 
-CODEX_STITCH_ONBOARDING_HEADING = "## Codex-only Stitch connection onboarding"
+CODEX_STITCH_ONBOARDING_HEADING = "## Codex-only external connection onboarding"
 
 CODEX_STITCH_ONBOARDING_CONTRACTS = (
     "Run this connection check when the user selects Stitch or Both at the upfront renderer choice.",
-    "The Live Codex plugin includes the Stitch MCP connection definition for `https://stitch.googleapis.com/mcp`; the user does not need to find or install a separate Stitch MCP.",
+    "Support the natural request: `Connect Stitch for Design Arc.`",
+    "A GitHub-marketplace installation includes the Stitch MCP connection definition for `https://stitch.googleapis.com/mcp`; an OpenAI Plugin Directory installation currently omits `mcpServers` and must not be assumed to include it.",
     "Inspect the Stitch tools actually available in the current Codex task; never infer a working connection from the bundled definition or server name alone.",
     "Verify a plausible Stitch connection with a read-only `list_projects` call or its exact equivalent.",
     "A successful call proves the connection even when it returns zero accessible projects; a failed or unauthorized call does not.",
-    "Stitch provides an editable canvas for visual alternatives and sustained refinement.",
-    "Then ask the user to enter their Stitch API key in Codex's secure credential prompt; do not ask them to find or install an MCP.",
+    "Stitch provides polished, editable mockups on a visual canvas for continued exploration and refinement.",
+    "Offer `Connect Stitch now — recommended`.",
+    "If the connection definition is absent, offer to configure the public endpoint and secure header reference in the user's Codex MCP configuration before asking for the key-entry step.",
     "Tell the user exactly where to create the key: open [Google Stitch](https://stitch.withgoogle.com/), select the Profile Picture, then **Stitch settings** → **API key** → **Create key**.",
     "The bundled connection sends the secure `STITCH_API_KEY` environment reference as the `X-Goog-Api-Key` header; it never contains a literal credential.",
     "Never ask the user to paste a Google API key into chat, and never read, display, log, write, commit, or store it in Design Arc state or project files.",
@@ -52,6 +54,21 @@ CODEX_STITCH_ONBOARDING_CONTRACTS = (
     "After setup, rediscover the Stitch tools and repeat the read-only project-list verification.",
     "After successful verification, resume at the pending renderer choice without repeating setup, Objective Confirmation, journey inspection, evidence gathering, or direction approval.",
     "If verification still fails, report the exact connection or authorization blocker and continue to offer the Codex visualization route; Stitch remains optional.",
+    "Do not start a selected Stitch renderer until verification succeeds or the user explicitly chooses the Codex-only fallback.",
+    "Do not claim that a paid Stitch subscription is required unless current official Google documentation establishes it.",
+)
+
+CODEX_MOBBIN_ONBOARDING_CONTRACTS = (
+    "Mobbin lets Design Arc inspect complete real-product journeys—not merely isolated screenshots.",
+    "`1. Connect Mobbin now — recommended`, `2. Continue this review with Guidelines only`, `3. Cancel the review`",
+    "Use [Mobbin account creation](https://mobbin.com/signup) and [Mobbin plans](https://mobbin.com/pricing)",
+    "Recommend Pro for an individual because it includes the complete library and browsing flows; explain that Team is for multiple collaborators and includes Pro capabilities.",
+    "Treat prices, availability, and quotas as changeable external information and never hard-code a price into the workflow contract.",
+    "Never ask for or store Mobbin credentials.",
+    "Use only separately authorized browser access; do not imply an official Mobbin MCP integration.",
+    "Verify access by opening and inspecting a relevant complete journey; a homepage, account page, library listing, metadata, popularity, or one screenshot is insufficient.",
+    "After successful verification, resume the paused review without repeating completed setup, objective, or approval work.",
+    "Mobbin supplies product precedent, never platform compliance; Stitch supplies visualization, never evidence or correctness.",
 )
 
 
@@ -86,14 +103,16 @@ def validate_codex_stitch_onboarding(source: str) -> None:
     require(source, CODEX_STITCH_ONBOARDING_HEADING, "Codex-only Stitch onboarding heading")
     for fragment in CODEX_STITCH_ONBOARDING_CONTRACTS:
         require(source, fragment, "Codex-only Stitch onboarding contract")
+    for fragment in CODEX_MOBBIN_ONBOARDING_CONTRACTS:
+        require(source, fragment, "Codex-only Mobbin onboarding contract")
 
 
 def test_codex_stitch_onboarding_contract() -> None:
     source = CODEX_SKILL.read_text(encoding="utf-8")
     validate_codex_stitch_onboarding(source)
 
-    for fragment in CODEX_STITCH_ONBOARDING_CONTRACTS:
-        mutated = source.replace(fragment, "", 1)
+    for fragment in CODEX_STITCH_ONBOARDING_CONTRACTS + CODEX_MOBBIN_ONBOARDING_CONTRACTS:
+        mutated = source.replace(fragment, "")
         try:
             validate_codex_stitch_onboarding(mutated)
         except AssertionError:

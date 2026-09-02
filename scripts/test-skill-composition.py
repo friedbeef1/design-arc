@@ -16,7 +16,7 @@ CODEX_SKILL = REPO_ROOT / "plugins/design-arc/skills/design-arc/SKILL.md"
 ANTIGRAVITY_SKILL = REPO_ROOT / "skills/design-arc/SKILL.md"
 CLAUDE_SKILL = REPO_ROOT / "claude-plugins/design-arc/skills/design-arc/SKILL.md"
 VERSION_FILE = REPO_ROOT / "shared/design-arc/VERSION"
-CODEX_STITCH_ONBOARDING_HEADING = "## Codex-only Stitch connection onboarding"
+CODEX_STITCH_ONBOARDING_HEADING = "## Codex-only external connection onboarding"
 
 composer_spec = importlib.util.spec_from_file_location("design_arc_composer", COMPOSER)
 if composer_spec is None or composer_spec.loader is None:

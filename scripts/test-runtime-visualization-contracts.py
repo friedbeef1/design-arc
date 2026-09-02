@@ -35,6 +35,25 @@ BOTH_VISUALIZATION_CONTRACTS = (
     "If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback.",
 )
 
+CODEX_STITCH_ONBOARDING_HEADING = "## Codex-only Stitch connection onboarding"
+
+CODEX_STITCH_ONBOARDING_CONTRACTS = (
+    "Run this connection check when the user selects Stitch or Both at the upfront renderer choice.",
+    "The Live Codex plugin includes the Stitch MCP connection definition for `https://stitch.googleapis.com/mcp`; the user does not need to find or install a separate Stitch MCP.",
+    "Inspect the Stitch tools actually available in the current Codex task; never infer a working connection from the bundled definition or server name alone.",
+    "Verify a plausible Stitch connection with a read-only `list_projects` call or its exact equivalent.",
+    "A successful call proves the connection even when it returns zero accessible projects; a failed or unauthorized call does not.",
+    "Stitch provides an editable canvas for visual alternatives and sustained refinement.",
+    "Then ask the user to enter their Stitch API key in Codex's secure credential prompt; do not ask them to find or install an MCP.",
+    "Tell the user exactly where to create the key: open [Google Stitch](https://stitch.withgoogle.com/), select the Profile Picture, then **Stitch settings** → **API key** → **Create key**.",
+    "The bundled connection sends the secure `STITCH_API_KEY` environment reference as the `X-Goog-Api-Key` header; it never contains a literal credential.",
+    "Never ask the user to paste a Google API key into chat, and never read, display, log, write, commit, or store it in Design Arc state or project files.",
+    "Ask the user only to complete the unavoidable key entry through Codex's secure credential interface.",
+    "After setup, rediscover the Stitch tools and repeat the read-only project-list verification.",
+    "After successful verification, resume at the pending renderer choice without repeating setup, Objective Confirmation, journey inspection, evidence gathering, or direction approval.",
+    "If verification still fails, report the exact connection or authorization blocker and continue to offer the Codex visualization route; Stitch remains optional.",
+)
+
 
 def require(source: str, fragment: str, label: str) -> None:
     if fragment not in source:
@@ -50,18 +69,45 @@ def test_codex_visualization_contract() -> None:
     source = CODEX_SKILL.read_text(encoding="utf-8")
     require(source, "Create static screen images and complete journey boards directly in Codex by default.", "Codex default")
     require(source, "canvas-based editing, multiple visual alternatives, and sustained visual refinement", "Stitch benefits")
-    require(source, "Recommend Stitch when those benefits materially help the review", "optional recommendation")
     require(source, "Stitch remains optional and separately authorized.", "optional authorization")
-    require(source, "1. **Stitch** (recommended)", "recommended Stitch choice")
-    require(source, "2. **Stay in Codex**", "Codex-only choice")
-    require(source, "3. **Both**", "combined visualization choice")
+    require(source, "1. **Both Codex and Stitch — recommended**", "recommended combined choice")
+    require(source, "2. **Codex only**", "Codex-only choice")
+    require(source, "3. **Stitch only**", "Stitch-only choice")
     require(source, "Reply with `1`, `2`, or `3`.", "numeric visualization reply")
     require(
         source,
-        "Both means create the Codex board and the Stitch visual workspace from the same approved journey.",
+        "Both means create the Codex board and the Stitch visual workspace concurrently from the same approved journey.",
         "combined visualization behavior",
     )
     reject(source, "Stitch is mandatory", "mandatory Stitch")
+
+
+def validate_codex_stitch_onboarding(source: str) -> None:
+    require(source, CODEX_STITCH_ONBOARDING_HEADING, "Codex-only Stitch onboarding heading")
+    for fragment in CODEX_STITCH_ONBOARDING_CONTRACTS:
+        require(source, fragment, "Codex-only Stitch onboarding contract")
+
+
+def test_codex_stitch_onboarding_contract() -> None:
+    source = CODEX_SKILL.read_text(encoding="utf-8")
+    validate_codex_stitch_onboarding(source)
+
+    for fragment in CODEX_STITCH_ONBOARDING_CONTRACTS:
+        mutated = source.replace(fragment, "", 1)
+        try:
+            validate_codex_stitch_onboarding(mutated)
+        except AssertionError:
+            continue
+        raise AssertionError(f"Codex Stitch onboarding mutation survived: {fragment}")
+
+
+def test_codex_stitch_onboarding_does_not_leak_to_alpha_adapters() -> None:
+    for path in (CLAUDE_SKILL, ANTIGRAVITY_SKILL):
+        reject(
+            path.read_text(encoding="utf-8"),
+            CODEX_STITCH_ONBOARDING_HEADING,
+            f"Codex-only Stitch onboarding in {path}",
+        )
 
 
 def test_claude_visualization_contract() -> None:
@@ -69,15 +115,14 @@ def test_claude_visualization_contract() -> None:
     require(source, "Never claim native image-generation capability in Claude Code.", "native-image disclaimer")
     require(source, "HTML/CSS, SVG, specifications, and lightweight static journey boards", "Claude outputs")
     require(source, "prepare a lightweight static journey board with HTML/CSS, SVG, or specifications", "Claude default route")
-    require(source, "polished screen mockups, visual exploration, editable layouts, or continued visual refinement", "early Stitch triggers")
-    require(source, "Do not withhold the Stitch recommendation when polished or editable mockups are requested.", "no withheld Stitch recommendation")
-    require(source, "1. **Stitch** (recommended)", "recommended Stitch choice")
-    require(source, "2. **Stay in Claude Code**", "Claude-only choice")
-    require(source, "3. **Both**", "combined visualization choice")
+    require(source, "Immediately after the Direction Gate resolves and before either renderer starts", "upfront renderer timing")
+    require(source, "1. **Both Claude Code and Stitch — recommended**", "recommended combined choice")
+    require(source, "2. **Claude Code only**", "Claude-only choice")
+    require(source, "3. **Stitch only**", "Stitch-only choice")
     require(source, "Reply with `1`, `2`, or `3`.", "numeric visualization reply")
     require(
         source,
-        "Both means create the Claude Code board and the Stitch visual workspace from the same approved journey.",
+        "Both means create the Claude Code board and the Stitch visual workspace concurrently from the same approved journey.",
         "combined visualization behavior",
     )
     require(source, "Never tell a Claude Code user to pass work to Codex unless the user explicitly requests a cross-platform handoff.", "no default Codex handoff")
@@ -112,6 +157,10 @@ def test_shared_selected_asset_fidelity_contract() -> None:
 def main() -> int:
     test_codex_visualization_contract()
     print("PASS: Codex visualization contract")
+    test_codex_stitch_onboarding_contract()
+    print("PASS: Codex-only Stitch onboarding contract and mutations")
+    test_codex_stitch_onboarding_does_not_leak_to_alpha_adapters()
+    print("PASS: Codex-only Stitch onboarding stays out of Alpha adapters")
     test_claude_visualization_contract()
     print("PASS: Claude visualization contract")
     test_shared_stitch_validation_contract()

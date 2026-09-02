@@ -1,6 +1,6 @@
 {
   "name": "design-arc",
-  "version": "1.5.3",
+  "version": "1.5.4",
   "description": "Live: outcome-led UI journey design for Codex.",
   "author": {
     "name": "James Yeang"
@@ -14,6 +14,15 @@
     "evidence"
   ],
   "skills": "./skills/",
+  "mcpServers": {
+    "stitch": {
+      "type": "http",
+      "url": "https://stitch.googleapis.com/mcp",
+      "env_http_headers": {
+        "X-Goog-Api-Key": "STITCH_API_KEY"
+      }
+    }
+  },
   "interface": {
     "displayName": "Design Arc",
     "shortDescription": "Evidence-backed UI journeys",

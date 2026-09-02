@@ -6,6 +6,8 @@ Choose the Google Antigravity edition when your product work already happens in 
 
 **Release status: Alpha.** The shared Design Arc methodology is established, while this newer Google Antigravity adapter is still maturing.
 
+Automated Stitch detection, setup, and connection verification are not implemented in the Antigravity Alpha adapter yet. For now, use Google's documented Antigravity route: open the MCP Store, search for **Stitch**, install it, enter the Stitch API key in the store flow, and ask Antigravity to “List my Stitch projects.” See the [official Google codelab](https://codelabs.developers.google.com/design-to-code-with-antigravity-stitch). Design Arc will add guided onboarding for this adapter in a later release.
+
 ## Install in Antigravity Desktop
 
 Google Antigravity Desktop does not require Antigravity CLI to use Design Arc. Paste this into Antigravity Desktop:

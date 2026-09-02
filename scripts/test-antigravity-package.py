@@ -44,7 +44,7 @@ def test_antigravity_manifest_is_a_root_skills_only_extension() -> None:
     """Antigravity installs one stable, root-contained Design Arc extension."""
     manifest = json.loads(EXTENSION_MANIFEST.read_text(encoding="utf-8"))
     require(manifest.get("name") == "design-arc", "Antigravity extension name must be design-arc")
-    require(manifest.get("version") == "1.5.3", "Antigravity extension must ship 1.5.3")
+    require(manifest.get("version") == "1.5.4", "Antigravity extension must ship 1.5.4")
     require(
         manifest.get("description") == "Alpha: outcome-led UI journey design for Google Antigravity.",
         "Antigravity extension description drifted",

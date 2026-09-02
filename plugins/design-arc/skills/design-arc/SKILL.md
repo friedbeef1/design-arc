@@ -3,6 +3,20 @@ name: design-arc
 description: Use when a mobile or web product journey feels confusing, incomplete, inconsistent, or subject to taste-based redesign debate, or when a team needs evidence-backed directions and complete material states before implementation.
 ---
 
+## Codex-only Stitch connection onboarding
+
+Run this connection check when the user selects Stitch or Both at the upfront renderer choice. It is onboarding for an optional external visualizer, not another approval gate.
+
+1. The Live Codex plugin includes the Stitch MCP connection definition for `https://stitch.googleapis.com/mcp`; the user does not need to find or install a separate Stitch MCP. Inspect the Stitch tools actually available in the current Codex task; never infer a working connection from the bundled definition or server name alone.
+2. Verify a plausible Stitch connection with a read-only `list_projects` call or its exact equivalent. A successful call proves the connection even when it returns zero accessible projects; a failed or unauthorized call does not. Report only the count and the minimum project identifiers needed for verification, without exposing unrelated project details.
+3. If no verified connection exists, explain the benefit in this one sentence: Stitch provides an editable canvas for visual alternatives and sustained refinement. Then ask the user to enter their Stitch API key in Codex's secure credential prompt; do not ask them to find or install an MCP.
+4. Tell the user exactly where to create the key: open [Google Stitch](https://stitch.withgoogle.com/), select the Profile Picture, then **Stitch settings** → **API key** → **Create key**. The bundled connection sends the secure `STITCH_API_KEY` environment reference as the `X-Goog-Api-Key` header; it never contains a literal credential.
+5. Never ask the user to paste a Google API key into chat, and never read, display, log, write, commit, or store it in Design Arc state or project files. Ask the user only to complete the unavoidable key entry through Codex's secure credential interface.
+6. After setup, rediscover the Stitch tools and repeat the read-only project-list verification. After successful verification, resume at the pending renderer choice without repeating setup, Objective Confirmation, journey inspection, evidence gathering, or direction approval.
+7. If verification still fails, report the exact connection or authorization blocker and continue to offer the Codex visualization route; Stitch remains optional.
+
+Record only the non-secret, review-scoped verification outcome and connection route. Do not add a Design Arc preference field for credentials or connection state. The plugin bundles only the remote connection definition; it does not bundle or republish Google's server code.
+
 # Design Arc
 
 Turn an explicit product outcome into a complete, evidence-backed journey proposal. Audit the real experience, compare meaningful directions, recommend one path, and visualize every material state while preserving the user's approval and release boundaries.
@@ -335,7 +349,9 @@ Inspect complete, relevant real-product journeys and explain why each selected p
 
 Mobbin is an optional external benchmark provider, not a bundled or official Design Arc integration. Access and authorization remain external and separate.
 
-If benchmark access is missing, stop; never degrade silently. Offer either a one-run Guidelines only fallback that does not rewrite the saved preference, or a confirmed saved switch to Guidelines only. Do not continue until the user chooses, and do not describe a fallback result as benchmark-backed.
+If the user selects Guidelines + Benchmarks without verified Mobbin access, treat that selection as intent to connect now. Briefly explain that Mobbin is a product-design research library used to inspect complete real-product journeys, then present: `1. Connect Mobbin now — recommended`, `2. Continue this review with Guidelines only`, `3. Cancel the review`. Guide account creation or sign-in through Mobbin's current official website and obtain explicit authorization before inspecting anything. Never ask for or store Mobbin credentials in chat, Design Arc state, or project files. Verify access by actually opening Mobbin and inspecting a relevant journey; an account page, library listing, metadata, popularity, or one screenshot is not verification.
+
+If connection is declined or verification fails, stop; never degrade silently. Only then offer the one-run Guidelines only fallback, which does not rewrite the saved preference. Do not continue until the user chooses, and do not describe a fallback result as benchmark-backed.
 
 ### Guidelines only
 
@@ -383,21 +399,15 @@ Recheck the complete selected direction against current first-party guidance for
 
 Confirm that the active host is Codex before recommending a visualization path. Create static screen images and complete journey boards directly in Codex by default. Do not build application logic, navigation logic, APIs, databases, production components, or throwaway prototype infrastructure merely to visualize the proposal. Include every material entry, transition, loading, empty, error, success, cancellation, and recovery state. Prefer one cohesive board first; generate an individual high-resolution screen only when closer inspection or a focused correction requires it.
 
-Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Recommend Stitch when those benefits materially help the review, while keeping direct Codex generation as the default. Stitch remains optional and separately authorized.
+Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Direct Codex generation is the quickest static-board route. Stitch remains optional and separately authorized.
 
-Recommend Stitch when any one genuine trigger occurs: a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; a journey becoming difficult to review as one board; noticeable unrelated drift after one Codex correction round; device variants; collaboration; or design export.
+Immediately after the Direction Gate resolves and before either renderer starts, present the visualization choice once. Do not wait for Codex to struggle, for a canvas trigger, or for a first render. Explain the differences briefly and present:
 
-Do not recommend Stitch merely because it is available, Mobbin supplied precedent, several material states exist, the first board has minor repairable drift, or one screen needs a bounded label, color, or control correction.
+1. **Both Codex and Stitch — recommended**
+2. **Codex only**
+3. **Stitch only**
 
-The first recommendation names the specific benefit; a later recommendation is brief and appears only after another genuine trigger or materially larger scope. Use this shape: “This is becoming easier to manage in Stitch because <specific trigger and benefit>. I recommend moving there, but I can continue in Codex if you prefer.”
-
-When Stitch is recommended, present this numbered choice:
-
-1. **Stitch** (recommended)
-2. **Stay in Codex**
-3. **Both**
-
-Reply with `1`, `2`, or `3`. Both means create the Codex board and the Stitch visual workspace from the same approved journey. The active host remains the evidence, validation, and approval surface; inspect both outputs and reconcile material drift before assigning the visual verdict.
+Reply with `1`, `2`, or `3`. Both means create the Codex board and the Stitch visual workspace concurrently from the same approved journey. Codex only is the fastest static-board route. Stitch only is the persistent editable-canvas route. The active host remains the evidence, validation, and approval surface; inspect every selected output before assigning the visual verdict.
 
 When the user selects `Both`, start the AI coding platform visualization and the Stitch visualization concurrently from the same approved specification. Supply both renderers with the same complete evidence-grounded journey, approved requirements, important-state inventory, viewports, asset requirements, and motion contracts; renderer-specific delivery instructions may differ, but the approved design requirements may not. Do not begin any correction round until both initial renders have finished successfully.
 
@@ -411,9 +421,9 @@ Treat `Both` as one paired proposal with one shared correction-round counter: at
 
 If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback. That fallback starts from the completed initial render, preserves the approved specification and remaining shared correction budget, and never turns a failed paired comparison into a successful `Both` verdict.
 
-A Stitch recommendation is advisory: never transfer automatically, and continuing in Codex remains available. Treat `stay in Codex` as a choice for the current editing phase, not a permanent suppression. If the user says not to recommend Stitch again for this review, suppress every further Stitch recommendation for that review.
+A renderer recommendation is advisory: never transfer automatically, and every listed route remains available. Record the selected initial renderer scope once; do not re-ask unless the user explicitly changes it or a selected renderer becomes unavailable.
 
-Before using Stitch, prepare the complete evidence-grounded journey, requirements, and important-state inventory. When Stitch is selected, preserve the approved journey requirements, require separately authorized access, and compare retrieved or supplied changes before treating them as the current proposal. A Stitch share link, exported screens, Figma or HTML/CSS export, or `DESIGN.md` may support the return path. Use an exact configured Stitch MCP server or tool only when it is actually available and separately authorized; never imply that Design Arc bundles one. Retrieval means “inspect and show what changed,” not “silently approve or overwrite the direction.”
+Before using Stitch, prepare the complete evidence-grounded journey, requirements, and important-state inventory. When Stitch is selected, preserve the approved journey requirements, require separately authorized access, and compare retrieved or supplied changes before treating them as the current proposal. A Stitch share link, exported screens, Figma or HTML/CSS export, or `DESIGN.md` may support the return path. In the Live Codex adapter, use the bundled Google-hosted Stitch connection definition only after the user's credential is securely supplied and verified; other adapters must use only an exact separately configured and authorized Stitch route. Retrieval means “inspect and show what changed,” not “silently approve or overwrite the direction.”
 
 Stitch is a visualization tool, not an evidence authority. The active host must validate returned screens and apply the existing proposal-wide correction loop of up to three correction rounds. Apply the same complete-state conformance matrix, full reinspection, three-verdict standard, and Visual Proposal Gate regardless of renderer. `Visual Proposal Gate` is the renderer-neutral user-facing name for the existing `Stitch Gate` contract in 0.3.x records; do not create an additional gate or require preference migration.
 

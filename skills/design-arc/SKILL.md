@@ -283,7 +283,9 @@ Inspect complete, relevant real-product journeys and explain why each selected p
 
 Mobbin is an optional external benchmark provider, not a bundled or official Design Arc integration. Access and authorization remain external and separate.
 
-If benchmark access is missing, stop; never degrade silently. Offer either a one-run Guidelines only fallback that does not rewrite the saved preference, or a confirmed saved switch to Guidelines only. Do not continue until the user chooses, and do not describe a fallback result as benchmark-backed.
+If the user selects Guidelines + Benchmarks without verified Mobbin access, treat that selection as intent to connect now. Briefly explain that Mobbin is a product-design research library used to inspect complete real-product journeys, then present: `1. Connect Mobbin now — recommended`, `2. Continue this review with Guidelines only`, `3. Cancel the review`. Guide account creation or sign-in through Mobbin's current official website and obtain explicit authorization before inspecting anything. Never ask for or store Mobbin credentials in chat, Design Arc state, or project files. Verify access by actually opening Mobbin and inspecting a relevant journey; an account page, library listing, metadata, popularity, or one screenshot is not verification.
+
+If connection is declined or verification fails, stop; never degrade silently. Only then offer the one-run Guidelines only fallback, which does not rewrite the saved preference. Do not continue until the user chooses, and do not describe a fallback result as benchmark-backed.
 
 ### Guidelines only
 
@@ -331,21 +333,15 @@ Recheck the complete selected direction against current first-party guidance for
 
 Confirm that the active host is Google Antigravity before recommending a visualization path. Never claim native image-generation capability in Google Antigravity. Google Antigravity may create HTML/CSS, SVG, specifications, and lightweight static journey boards. Do not build application logic, navigation logic, APIs, databases, production components, or throwaway prototype infrastructure merely to visualize the proposal. Include every material entry, transition, loading, empty, error, success, cancellation, and recovery state. Prefer one cohesive board first; generate an individual high-resolution screen only when closer inspection or a focused correction requires it.
 
-Recommend Google Stitch early whenever the user wants polished screen mockups, visual exploration, editable layouts, or continued visual refinement. Stitch remains optional and separately authorized.
+Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Google Antigravity can prepare a lightweight static journey board, while Stitch supplies the polished editable-canvas route. Stitch remains optional and separately authorized.
 
-Recommend Stitch when any one genuine trigger occurs: polished screen mockups; visual exploration; editable layouts; continued visual refinement; a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; device variants; collaboration; or design export.
+Immediately after the Direction Gate resolves and before either renderer starts, present the visualization choice once. Do not wait for Google Antigravity to struggle, for a later trigger, or for a first render. Explain the differences briefly and present:
 
-Do not withhold the Stitch recommendation when polished or editable mockups are requested. Otherwise, do not recommend Stitch merely because it is available, Mobbin supplied precedent, or one screen needs a bounded correction.
+1. **Both Google Antigravity and Stitch — recommended**
+2. **Google Antigravity only**
+3. **Stitch only**
 
-For the first relevant choice, use this exact prompt: “Antigravity can prepare a lightweight static journey board here. For polished, editable screen mockups, I recommend a Stitch-ready visual proposal. Which would you prefer?” A later recommendation is brief and appears only after another genuine trigger or materially larger scope.
-
-When Stitch is recommended, present this numbered choice:
-
-1. **Stitch** (recommended)
-2. **Stay in Google Antigravity**
-3. **Both**
-
-Reply with `1`, `2`, or `3`. Both means create the Google Antigravity board and the Stitch visual workspace from the same approved journey. The active host remains the evidence, validation, and approval surface; inspect both outputs and reconcile material drift before assigning the visual verdict.
+Reply with `1`, `2`, or `3`. Both means create the Google Antigravity board and the Stitch visual workspace concurrently from the same approved journey. Google Antigravity only is the lightweight static-board route. Stitch only is the persistent editable-canvas route. The active host remains the evidence, validation, and approval surface; inspect every selected output before assigning the visual verdict.
 
 When the user selects `Both`, start the AI coding platform visualization and the Stitch visualization concurrently from the same approved specification. Supply both renderers with the same complete evidence-grounded journey, approved requirements, important-state inventory, viewports, asset requirements, and motion contracts; renderer-specific delivery instructions may differ, but the approved design requirements may not. Do not begin any correction round until both initial renders have finished successfully.
 
@@ -359,9 +355,9 @@ Treat `Both` as one paired proposal with one shared correction-round counter: at
 
 If either initial renderer fails or becomes unavailable, stop the `Both` path and report the incomplete comparison; do not correct the completed renderer unless the user explicitly selects a single-renderer fallback. That fallback starts from the completed initial render, preserves the approved specification and remaining shared correction budget, and never turns a failed paired comparison into a successful `Both` verdict.
 
-A Stitch recommendation is advisory: never transfer automatically, and continuing in Google Antigravity remains available. Treat `stay in Google Antigravity` as a choice for the current editing phase, not a permanent suppression. Never tell a Google Antigravity user to pass work to Codex unless the user explicitly requests a cross-platform handoff. If the user says not to recommend Stitch again for this review, suppress every further Stitch recommendation for that review.
+A renderer recommendation is advisory: never transfer automatically, and every listed route remains available. Record the selected initial renderer scope once; do not re-ask unless the user explicitly changes it or a selected renderer becomes unavailable.
 
-Before using Stitch, prepare the complete evidence-grounded journey, requirements, and important-state inventory. When Stitch is selected, preserve the approved journey requirements, require separately authorized access, and compare retrieved or supplied changes before treating them as the current proposal. A Stitch share link, exported screens, Figma or HTML/CSS export, or `DESIGN.md` may support the return path. Use an exact configured Stitch MCP server or tool only when it is actually available and separately authorized; never imply that Design Arc bundles one. Retrieval means “inspect and show what changed,” not “silently approve or overwrite the direction.”
+Before using Stitch, prepare the complete evidence-grounded journey, requirements, and important-state inventory. When Stitch is selected, preserve the approved journey requirements, require separately authorized access, and compare retrieved or supplied changes before treating them as the current proposal. A Stitch share link, exported screens, Figma or HTML/CSS export, or `DESIGN.md` may support the return path. In the Live Codex adapter, use the bundled Google-hosted Stitch connection definition only after the user's credential is securely supplied and verified; other adapters must use only an exact separately configured and authorized Stitch route. Retrieval means “inspect and show what changed,” not “silently approve or overwrite the direction.”
 
 Stitch is a visualization tool, not an evidence authority. The active host must validate returned screens and apply the existing proposal-wide correction loop of up to three correction rounds. Apply the same complete-state conformance matrix, full reinspection, three-verdict standard, and Visual Proposal Gate regardless of renderer. `Visual Proposal Gate` is the renderer-neutral user-facing name for the existing `Stitch Gate` contract in 0.3.x records; do not create an additional gate or require preference migration.
 

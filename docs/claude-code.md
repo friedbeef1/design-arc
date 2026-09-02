@@ -6,6 +6,8 @@ Choose the Claude Code edition when your product work already happens in Claude 
 
 **Release status: Alpha.** The shared Design Arc methodology is established, while this newer Claude Code adapter is still maturing.
 
+Automated Stitch detection, setup, and connection verification are not implemented in the Claude Code Alpha adapter yet. Stitch can still be used through a separately installed and authorized connection, but Design Arc will not configure it for Claude Code in this release.
+
 ## Install
 
 Ask Claude Code:

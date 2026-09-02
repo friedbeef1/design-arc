@@ -83,7 +83,7 @@ for expected_output in \
   'PASS: isolated Design Arc plugin migration smoke' \
   'PASS: isolated Design Arc plugin upgrade smoke' \
   'PASS: exact 0.2.3 downgrade ignores unsupported graph machinery and preserves graph records/state' \
-  'PASS: isolated Design Arc 0.3.1 to 1.5.3 upgrade' \
+  'PASS: isolated Design Arc 0.3.1 to 1.5.4 upgrade' \
   'PASS: credential, local-path, and media safety scans' \
   'PASS: composition check enforces version parity and package containment' \
   'PASS: shell and Python syntax checks' \

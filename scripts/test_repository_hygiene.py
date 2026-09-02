@@ -20,7 +20,7 @@ FORBIDDEN_PATHS = (
     "docs/handoffs/release.md",
     "docs/retrospectives/review.md",
     "docs/validation/runtime-report.md",
-    "docs/release-drafts/1.5.3.md",
+    "docs/release-drafts/1.5.4.md",
     "docs/openai-plugin-directory-submission.md",
     ".codex/design-arc.yaml",
     ".codex/design-arc/reviews/review-1.json",

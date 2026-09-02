@@ -95,7 +95,7 @@ require(
 install = read_json("design-arc-add.json")
 require(install.get("pluginId") == "design-arc@design-arc-marketplace", "Codex must install the canonical plugin")
 require(install.get("name") == "design-arc", "install result must name design-arc")
-require(install.get("version") == "1.5.3", "install result must report version 1.5.3")
+require(install.get("version") == "1.5.4", "install result must report version 1.5.4")
 installed_path = Path(install.get("installedPath", "")).resolve()
 require(installed_path.is_dir(), "Codex must report an installed plugin cache directory")
 require(codex_home in installed_path.parents, "installed plugin cache must stay inside the isolated Codex home")
@@ -111,6 +111,10 @@ require(installed.get("available") == [], "no second marketplace plugin may rema
 manifest = json.loads((installed_path / ".codex-plugin/plugin.json").read_text(encoding="utf-8"))
 require(manifest.get("interface", {}).get("displayName") == "Design Arc", "installed plugin display name must be Design Arc")
 require(manifest.get("skills") == "./skills/", "installed plugin must expose its skills directory")
+require(
+    manifest.get("mcpServers", {}).get("stitch", {}).get("env_http_headers") == {"X-Goog-Api-Key": "STITCH_API_KEY"},
+    "installed Stitch connection must reference the user's secure STITCH_API_KEY environment value",
+)
 installed_skill = installed_path / "skills/design-arc/SKILL.md"
 skill_text = installed_skill.read_text(encoding="utf-8")
 require(skill_text.startswith("---\nname: design-arc\n"), "installed embedded skill must load with name: design-arc")

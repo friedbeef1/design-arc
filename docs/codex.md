@@ -24,8 +24,18 @@ That ordinary-language request is the recommended start. If you prefer a shortcu
 
 - A pinned project home, created only with your approval, so Design Arc is easy to find later.
 - Static screen images and complete journey boards directly in Codex by default.
-- Optional Google Stitch escalation when canvas editing, alternatives, collaboration, or sustained visual refinement would materially help.
+- An upfront choice between Codex, Stitch, or both, with both recommended for direct comparison.
 - Codex-specific preferences and review records under `.codex/`.
+
+## Guided Stitch connection
+
+The Live Codex plugin already includes the Stitch MCP connection definition. You do not need to search for, select, or install a separate Stitch MCP.
+
+When you choose Stitch or both at the upfront visualization decision, Codex verifies the bundled `https://stitch.googleapis.com/mcp` connection with a read-only project-list request. If credentials are missing, Codex prompts you to enter your key securely. To create one, open [Google Stitch](https://stitch.withgoogle.com/), then go to Profile Picture → **Stitch settings** → **API key** → **Create key**.
+
+Never paste a Stitch API key into chat. Enter it only in Codex's secure credential prompt. Design Arc does not read it, put it in project files, save it in preferences, or include it in the plugin.
+
+Codex then verifies the connection again and resumes at the pending visual-workspace choice. A failed connection never blocks the normal Codex board; Design Arc reports the blocker and keeps Stitch optional.
 
 ## State
 

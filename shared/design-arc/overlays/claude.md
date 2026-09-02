@@ -5,6 +5,8 @@ argument-hint: "[setup|mode|graph] [options]"
 user-invocable: true
 ---
 
+Never tell a Claude Code user to pass work to Codex unless the user explicitly requests a cross-platform handoff.
+
 ## Claude Code entry points
 
 Use `/design-arc:design-arc setup` to resolve Design Arc setup,

@@ -68,11 +68,11 @@ MUTATIONS = {
         "Build a disposable application prototype by default.",
     ),
     "early Stitch recommendation": (
-        "Recommend Google Stitch early whenever the user wants polished screen mockups, visual exploration, editable layouts, or continued visual refinement. Stitch remains optional and separately authorized.",
-        "Recommend Stitch only after several triggers occur together.",
+        "Immediately after the Direction Gate resolves and before either renderer starts, present the visualization choice once.",
+        "Wait for the Google Antigravity render to struggle before offering Stitch.",
     ),
     "required Stitch choice": (
-        "Both means create the Google Antigravity board and the Stitch visual workspace from the same approved journey.",
+        "Both means create the Google Antigravity board and the Stitch visual workspace concurrently from the same approved journey.",
         "Offer only Stitch or Google Antigravity; do not offer both.",
     ),
     "no default cross-platform handoff": (

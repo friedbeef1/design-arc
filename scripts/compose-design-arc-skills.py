@@ -107,20 +107,18 @@ def methodology_for(platform: str) -> str:
                 "must preserve project preferences, reminder blocks, active review identity/version records, graph files, and product files",
             "Confirm that the active host is Codex before recommending a visualization path. Create static screen images and complete journey boards directly in Codex by default.":
                 "Confirm that the active host is Google Antigravity before recommending a visualization path. Never claim native image-generation capability in Google Antigravity. Google Antigravity may create HTML/CSS, SVG, specifications, and lightweight static journey boards.",
-            "Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Recommend Stitch when those benefits materially help the review, while keeping direct Codex generation as the default. Stitch remains optional and separately authorized.":
-                "Recommend Google Stitch early whenever the user wants polished screen mockups, visual exploration, editable layouts, or continued visual refinement. Stitch remains optional and separately authorized.",
-            "Recommend Stitch when any one genuine trigger occurs: a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; a journey becoming difficult to review as one board; noticeable unrelated drift after one Codex correction round; device variants; collaboration; or design export.":
-                "Recommend Stitch when any one genuine trigger occurs: polished screen mockups; visual exploration; editable layouts; continued visual refinement; a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; device variants; collaboration; or design export.",
-            "Do not recommend Stitch merely because it is available, Mobbin supplied precedent, several material states exist, the first board has minor repairable drift, or one screen needs a bounded label, color, or control correction.":
-                "Do not withhold the Stitch recommendation when polished or editable mockups are requested. Otherwise, do not recommend Stitch merely because it is available, Mobbin supplied precedent, or one screen needs a bounded correction.",
-            "The first recommendation names the specific benefit; a later recommendation is brief and appears only after another genuine trigger or materially larger scope. Use this shape: “This is becoming easier to manage in Stitch because <specific trigger and benefit>. I recommend moving there, but I can continue in Codex if you prefer.”":
-                "For the first relevant choice, use this exact prompt: “Antigravity can prepare a lightweight static journey board here. For polished, editable screen mockups, I recommend a Stitch-ready visual proposal. Which would you prefer?” A later recommendation is brief and appears only after another genuine trigger or materially larger scope.",
-            "2. **Stay in Codex**":
-                "2. **Stay in Google Antigravity**",
-            "Both means create the Codex board and the Stitch visual workspace from the same approved journey.":
-                "Both means create the Google Antigravity board and the Stitch visual workspace from the same approved journey.",
-            "A Stitch recommendation is advisory: never transfer automatically, and continuing in Codex remains available. Treat `stay in Codex` as a choice for the current editing phase, not a permanent suppression.":
-                "A Stitch recommendation is advisory: never transfer automatically, and continuing in Google Antigravity remains available. Treat `stay in Google Antigravity` as a choice for the current editing phase, not a permanent suppression. Never tell a Google Antigravity user to pass work to Codex unless the user explicitly requests a cross-platform handoff.",
+            "Direct Codex generation is the quickest static-board route.":
+                "Google Antigravity can prepare a lightweight static journey board, while Stitch supplies the polished editable-canvas route.",
+            "Do not wait for Codex to struggle, for a canvas trigger, or for a first render.":
+                "Do not wait for Google Antigravity to struggle, for a later trigger, or for a first render.",
+            "1. **Both Codex and Stitch — recommended**":
+                "1. **Both Google Antigravity and Stitch — recommended**",
+            "2. **Codex only**":
+                "2. **Google Antigravity only**",
+            "Both means create the Codex board and the Stitch visual workspace concurrently from the same approved journey.":
+                "Both means create the Google Antigravity board and the Stitch visual workspace concurrently from the same approved journey.",
+            "Codex only is the fastest static-board route.":
+                "Google Antigravity only is the lightweight static-board route.",
             "For the default Codex route, generate the complete static board directly and avoid disposable application logic.":
                 "For the default Google Antigravity route, prepare a lightweight static journey board with HTML/CSS, SVG, or specifications and avoid disposable application logic.",
             "Return decision-ready evidence in Codex":
@@ -184,20 +182,18 @@ def methodology_for(platform: str) -> str:
             "must preserve project preferences, reminder blocks, active review identity/version records, graph files, and product files",
         "Confirm that the active host is Codex before recommending a visualization path. Create static screen images and complete journey boards directly in Codex by default.":
             "Confirm that the active host is Claude Code before recommending a visualization path. Never claim native image-generation capability in Claude Code. Claude Code may create HTML/CSS, SVG, specifications, and lightweight static journey boards.",
-        "Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Recommend Stitch when those benefits materially help the review, while keeping direct Codex generation as the default. Stitch remains optional and separately authorized.":
-            "Recommend Google Stitch early whenever the user wants polished screen mockups, visual exploration, editable layouts, or continued visual refinement. Stitch remains optional and separately authorized.",
-        "Recommend Stitch when any one genuine trigger occurs: a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; a journey becoming difficult to review as one board; noticeable unrelated drift after one Codex correction round; device variants; collaboration; or design export.":
-            "Recommend Stitch when any one genuine trigger occurs: polished screen mockups; visual exploration; editable layouts; continued visual refinement; a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; device variants; collaboration; or design export.",
-        "Do not recommend Stitch merely because it is available, Mobbin supplied precedent, several material states exist, the first board has minor repairable drift, or one screen needs a bounded label, color, or control correction.":
-            "Do not withhold the Stitch recommendation when polished or editable mockups are requested. Otherwise, do not recommend Stitch merely because it is available, Mobbin supplied precedent, or one screen needs a bounded correction.",
-        "The first recommendation names the specific benefit; a later recommendation is brief and appears only after another genuine trigger or materially larger scope. Use this shape: “This is becoming easier to manage in Stitch because <specific trigger and benefit>. I recommend moving there, but I can continue in Codex if you prefer.”":
-            "For the first relevant choice, use this exact prompt: “Claude can prepare a lightweight static journey board here. For polished, editable screen mockups, I recommend a Stitch-ready visual proposal. Which would you prefer?” A later recommendation is brief and appears only after another genuine trigger or materially larger scope.",
-        "2. **Stay in Codex**":
-            "2. **Stay in Claude Code**",
-        "Both means create the Codex board and the Stitch visual workspace from the same approved journey.":
-            "Both means create the Claude Code board and the Stitch visual workspace from the same approved journey.",
-        "A Stitch recommendation is advisory: never transfer automatically, and continuing in Codex remains available. Treat `stay in Codex` as a choice for the current editing phase, not a permanent suppression.":
-            "A Stitch recommendation is advisory: never transfer automatically, and continuing in Claude Code remains available. Treat `stay in Claude Code` as a choice for the current editing phase, not a permanent suppression. Never tell a Claude Code user to pass work to Codex unless the user explicitly requests a cross-platform handoff.",
+        "Direct Codex generation is the quickest static-board route.":
+            "Claude Code can prepare a lightweight static journey board, while Stitch supplies the polished editable-canvas route.",
+        "Do not wait for Codex to struggle, for a canvas trigger, or for a first render.":
+            "Do not wait for Claude Code to struggle, for a later trigger, or for a first render.",
+        "1. **Both Codex and Stitch — recommended**":
+            "1. **Both Claude Code and Stitch — recommended**",
+        "2. **Codex only**":
+            "2. **Claude Code only**",
+        "Both means create the Codex board and the Stitch visual workspace concurrently from the same approved journey.":
+            "Both means create the Claude Code board and the Stitch visual workspace concurrently from the same approved journey.",
+        "Codex only is the fastest static-board route.":
+            "Claude Code only is the lightweight static-board route.",
         "For the default Codex route, generate the complete static board directly and avoid disposable application logic.":
             "For the default Claude Code route, prepare a lightweight static journey board with HTML/CSS, SVG, or specifications and avoid disposable application logic.",
         "Return decision-ready evidence in Codex":

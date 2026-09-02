@@ -54,15 +54,14 @@ REQUIRED_CONTRACTS = {
         "For the default Google Antigravity route, prepare a lightweight static journey board with HTML/CSS, SVG, or specifications and avoid disposable application logic.",
     ),
     "early Stitch recommendation": (
-        "Recommend Google Stitch early whenever the user wants polished screen mockups, visual exploration, editable layouts, or continued visual refinement. Stitch remains optional and separately authorized.",
+        "Immediately after the Direction Gate resolves and before either renderer starts, present the visualization choice once.",
     ),
     "required Stitch choice": (
-        "Antigravity can prepare a lightweight static journey board here. For polished, editable screen mockups, I recommend a Stitch-ready visual proposal. Which would you prefer?",
-        "1. **Stitch** (recommended)",
-        "2. **Stay in Google Antigravity**",
-        "3. **Both**",
+        "1. **Both Google Antigravity and Stitch — recommended**",
+        "2. **Google Antigravity only**",
+        "3. **Stitch only**",
         "Reply with `1`, `2`, or `3`.",
-        "Both means create the Google Antigravity board and the Stitch visual workspace from the same approved journey.",
+        "Both means create the Google Antigravity board and the Stitch visual workspace concurrently from the same approved journey.",
     ),
     "no default cross-platform handoff": (
         "Never tell a Google Antigravity user to pass work to Codex or Claude Code unless the user explicitly requests a cross-platform handoff.",

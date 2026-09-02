@@ -27,6 +27,24 @@ do
   [ -f "$required_file" ] || fail "missing Design Arc identity file: ${required_file#"$repo_root/"}"
 done
 
+python3 - "$plugin_manifest" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+expected = {
+    "type": "http",
+    "url": "https://stitch.googleapis.com/mcp",
+    "env_http_headers": {"X-Goog-Api-Key": "STITCH_API_KEY"},
+}
+servers = manifest.get("mcpServers")
+if servers != {"stitch": expected}:
+    raise SystemExit("Stitch MCP must use the Google endpoint and a non-secret STITCH_API_KEY reference")
+if "STITCH_API_KEY" not in json.dumps(servers):
+    raise SystemExit("Stitch MCP must not contain a literal credential")
+PY
+
 [ -s "$directory_logo" ] || fail 'Plugin Directory logo must not be empty'
 [ -s "$plugin_logo" ] || fail 'packaged plugin logo must not be empty'
 
@@ -234,9 +252,16 @@ metadata = metadata_path.read_text(encoding="utf-8")
 
 expected_plugin = {
     "name": "design-arc",
-    "version": "1.5.3",
+    "version": "1.5.4",
     "description": "Live: outcome-led UI journey design for Codex.",
     "skills": "./skills/",
+    "mcpServers": {
+        "stitch": {
+            "type": "http",
+            "url": "https://stitch.googleapis.com/mcp",
+            "env_http_headers": {"X-Goog-Api-Key": "STITCH_API_KEY"},
+        }
+    },
     "author": {"name": "James Yeang"},
     "repository": "https://github.com/friedbeef1/design-arc",
     "license": "MIT",

@@ -125,11 +125,15 @@ MUTATIONS = {
         "In Guidelines only mode, quietly use benchmark evidence when convenient.",
     ),
     "missing access stop": (
-        "If benchmark access is missing, stop; never degrade silently.",
+        "If connection is declined or verification fails, stop; never degrade silently.",
         "If benchmark access is missing, silently continue with guidelines.",
     ),
+    "connect Mobbin now": (
+        "`1. Connect Mobbin now — recommended`, `2. Continue this review with Guidelines only`, `3. Cancel the review`.",
+        "Continue with Guidelines only without offering a Mobbin connection.",
+    ),
     "one-run fallback": (
-        "Offer either a one-run Guidelines only fallback that does not rewrite the saved preference, or a confirmed saved switch to Guidelines only.",
+        "Only then offer the one-run Guidelines only fallback, which does not rewrite the saved preference.",
         "Switch the saved preference to Guidelines only without asking.",
     ),
     "fb ux import": (
@@ -381,19 +385,15 @@ MUTATIONS = {
         "Build a coded interactive application prototype by default.",
     ),
     "Stitch remains optional": (
-        "Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Recommend Stitch when those benefits materially help the review, while keeping direct Codex generation as the default. Stitch remains optional and separately authorized.",
+        "Google Stitch is valuable for canvas-based editing, multiple visual alternatives, and sustained visual refinement. Direct Codex generation is the quickest static-board route. Stitch remains optional and separately authorized.",
         "Google Stitch is mandatory for every Design Arc review.",
     ),
-    "single-trigger recommendation threshold": (
-        "Recommend Stitch when any one genuine trigger occurs: a second meaningful visual direction; a change spanning three or more screens; precise layout, spacing, or styling iteration; user-directed canvas editing; likely continuation on another day; a journey becoming difficult to review as one board; noticeable unrelated drift after one Codex correction round; device variants; collaboration; or design export.",
-        "Recommend Stitch only after several triggers occur together.",
-    ),
-    "repeat recommendation boundary": (
-        "The first recommendation names the specific benefit; a later recommendation is brief and appears only after another genuine trigger or materially larger scope.",
-        "Repeat the recommendation after every small edit.",
+    "upfront renderer timing": (
+        "Immediately after the Direction Gate resolves and before either renderer starts, present the visualization choice once.",
+        "Wait until the Codex render is inadequate before mentioning Stitch.",
     ),
     "three-way visualization choice": (
-        "Both means create the Codex board and the Stitch visual workspace from the same approved journey.",
+        "1. **Both Codex and Stitch — recommended**",
         "Offer only Stitch or Codex; do not offer both.",
     ),
     "Both concurrent initial renders": (
@@ -433,16 +433,16 @@ MUTATIONS = {
         "If one initial renderer fails, silently continue correcting and approving the completed renderer.",
     ),
     "advisory transfer": (
-        "A Stitch recommendation is advisory: never transfer automatically, and continuing in Codex remains available.",
+        "A renderer recommendation is advisory: never transfer automatically, and every listed route remains available.",
         "Automatically transfer the proposal to Stitch after a trigger.",
     ),
-    "phase-scoped stay choice": (
-        "Treat `stay in Codex` as a choice for the current editing phase, not a permanent suppression.",
-        "Treat `stay in Codex` as a permanent global preference.",
+    "renderer choice is recorded once": (
+        "Record the selected initial renderer scope once; do not re-ask unless the user explicitly changes it or a selected renderer becomes unavailable.",
+        "Re-ask the renderer choice before every correction round.",
     ),
-    "review-scoped recommendation suppression": (
-        "If the user says not to recommend Stitch again for this review, suppress every further Stitch recommendation for that review.",
-        "Continue recommending Stitch during the review after the user opts out.",
+    "renderer choice can change explicitly": (
+        "unless the user explicitly changes it or a selected renderer becomes unavailable.",
+        "even when the user explicitly changes it or a selected renderer becomes unavailable.",
     ),
     "renderer-neutral validation": (
         "Stitch is a visualization tool, not an evidence authority. The active host must validate returned screens and apply the existing proposal-wide correction loop of up to three correction rounds.",

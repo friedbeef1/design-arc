@@ -108,7 +108,7 @@ require(Path(design_marketplace_add.get("installedRoot", "")).resolve() == curre
 
 design_add = read_json("design-arc-add.json")
 require(design_add.get("pluginId") == "design-arc@design-arc-marketplace", "migration must install the canonical Design Arc plugin")
-require(design_add.get("version") == "1.5.4", "migration must install Design Arc 1.5.4")
+require(design_add.get("version") == "1.5.5", "migration must install Design Arc 1.5.5")
 installed_path = Path(design_add.get("installedPath", "")).resolve()
 require(installed_path.is_dir(), "migrated Design Arc cache must exist")
 require(codex_home in installed_path.parents, "migrated plugin cache must stay in the isolated Codex home")

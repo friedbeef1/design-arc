@@ -95,7 +95,7 @@ require(
 install = read_json("design-arc-add.json")
 require(install.get("pluginId") == "design-arc@design-arc-marketplace", "Codex must install the canonical plugin")
 require(install.get("name") == "design-arc", "install result must name design-arc")
-require(install.get("version") == "1.5.4", "install result must report version 1.5.4")
+require(install.get("version") == "1.5.5", "install result must report version 1.5.5")
 installed_path = Path(install.get("installedPath", "")).resolve()
 require(installed_path.is_dir(), "Codex must report an installed plugin cache directory")
 require(codex_home in installed_path.parents, "installed plugin cache must stay inside the isolated Codex home")

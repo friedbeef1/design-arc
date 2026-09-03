@@ -284,7 +284,7 @@ if DESIGN_ARC_UPGRADE_BASELINE_SHA=55b03baf4a8dc0b52f0702f1236a865ac2c797b6 \
 then
   :
 else
-  fail 'isolated public 0.3.0 to 1.5.4 upgrade smoke failed'
+  fail 'isolated public 0.3.0 to 1.5.5 upgrade smoke failed'
 fi
 
 if DESIGN_ARC_UPGRADE_BASELINE_SHA=bd5443df13bab19ba066be8014ff2e1ae87cc9f6 \
@@ -293,7 +293,7 @@ if DESIGN_ARC_UPGRADE_BASELINE_SHA=bd5443df13bab19ba066be8014ff2e1ae87cc9f6 \
 then
   :
 else
-  fail 'isolated public 0.3.1 to 1.5.4 upgrade smoke failed'
+  fail 'isolated public 0.3.1 to 1.5.5 upgrade smoke failed'
 fi
 
 if git -C "$repo_root" rev-parse --is-inside-work-tree >/dev/null 2>&1

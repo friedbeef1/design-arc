@@ -40,6 +40,7 @@ CODEX_HOME="$codex_home" "$codex_bin" debug prompt-input 'Use $design-arc to aud
 python3 - "$checkout_path" "$codex_home" "$task_temp_dir" <<'PY'
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -150,8 +151,46 @@ developer_text = "\n".join(
     for content in item.get("content", [])
     if content.get("type") == "input_text"
 )
-skill_line = f"- design-arc:design-arc: {skill_text.splitlines()[2].removeprefix('description: ')} (file: {installed_skill})"
-require(developer_text.count(skill_line) == 1, "a new task must expose exactly one cached design-arc skill")
+def discovers_exact_skill(text, expected_path, description):
+    prefix = "- design-arc:design-arc: "
+    entries = [line for line in text.splitlines() if line.startswith(prefix)]
+    if len(entries) != 1:
+        return False
+    match = re.fullmatch(re.escape(prefix + description) + r" \(file: (.+)\)", entries[0])
+    if not match:
+        return False
+    path = Path(match.group(1))
+    if not path.is_absolute():
+        # Current Codex abbreviates cache paths using the declared skill-root table.
+        roots = re.findall(r"^- `(r\d+)` = `([^`]+)`$", text, re.MULTILINE)
+        matches = [root for alias, root in roots if alias == path.parts[0]]
+        if len(matches) != 1 or not Path(matches[0]).is_absolute():
+            return False
+        if ".." in path.parts:
+            return False
+        path = Path(matches[0]).joinpath(*path.parts[1:])
+    return path.resolve() == expected_path.resolve()
+
+
+description = skill_text.splitlines()[2].removeprefix('description: ')
+absolute_entry = f"- design-arc:design-arc: {description} (file: {installed_skill})"
+alias_root = f"- `r42` = `{installed_skill.parent}`"
+alias_entry = f"- design-arc:design-arc: {description} (file: r42/SKILL.md)"
+# Regression and negative cases exercise the same resolver used for the real prompt.
+require(discovers_exact_skill(absolute_entry, installed_skill, description), "absolute skill discovery regression")
+require(discovers_exact_skill(alias_root + "\n" + alias_entry, installed_skill, description), "aliased skill discovery regression")
+for invalid_prompt in (
+    "",
+    absolute_entry + "\n" + absolute_entry,
+    alias_entry,
+    alias_root + "\n" + alias_root + "\n" + alias_entry,
+    alias_root + "\n" + alias_entry.replace("r42/", "r99/"),
+    alias_root + "\n" + alias_entry.replace("SKILL.md", "wrong.md"),
+    alias_root + "\n" + alias_entry.replace("r42/", "r42/../"),
+    absolute_entry.replace(description, "wrong description"),
+):
+    require(not discovers_exact_skill(invalid_prompt, installed_skill, description), "invalid skill discovery must fail closed")
+require(discovers_exact_skill(developer_text, installed_skill, description), "a new task must expose exactly one cached design-arc skill")
 require("- fb-ux:fb-ux:" not in developer_text, "new-task plugin skills must not expose fb-ux")
 require("- apple-guidelines-stitch:apple-guidelines-stitch:" not in developer_text, "new-task plugin skills must not expose apple-guidelines-stitch")
 

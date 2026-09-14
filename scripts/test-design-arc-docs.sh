@@ -198,8 +198,8 @@ See how Design Arc turns vague feedback into an evidence-backed direction—watc
 
 | Product walkthrough | Introduction deck |
 | --- | --- |
-| [![Design Arc product demo thumbnail — opens YouTube](https://img.youtube.com/vi/Zt7ba_lngxk/maxresdefault.jpg)](https://youtu.be/Zt7ba_lngxk) | [![Design Arc introduction deck cover — opens presentation](https://docs.google.com/presentation/d/1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU/export/png?id=1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU&pageid=g3fab99837d7_0_185)](https://docs.google.com/presentation/d/1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU/preview) |
-| [Watch on YouTube](https://youtu.be/Zt7ba_lngxk) | [Open presentation](https://docs.google.com/presentation/d/1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU/preview) |"""
+| [![Design Arc product walkthrough thumbnail — opens YouTube](https://img.youtube.com/vi/bbc1t_1LdWk/maxresdefault.jpg)](https://youtu.be/bbc1t_1LdWk) | [![Design Arc introduction deck cover — opens presentation](https://docs.google.com/presentation/d/1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU/export/png?id=1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU&pageid=g3fab99837d7_0_185)](https://docs.google.com/presentation/d/1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU/preview) |
+| [Watch on YouTube](https://youtu.be/bbc1t_1LdWk) | [Open presentation](https://docs.google.com/presentation/d/1EG5vrPC5UqAkNAr9jce0lvZz1Jq5oI4AqAbPVivG2sU/preview) |"""
 if action_section not in text:
     raise SystemExit("FAIL: README action section must retain the ordered two-card demo and introduction-deck resources")
 

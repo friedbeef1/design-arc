@@ -1,14 +1,17 @@
 # Design Arc
 
-One Design Arc, available for Codex (live), Claude Code (alpha), and Google Antigravity (alpha).
-
-Design Arc works in three AI coding platforms: Codex, Claude Code, and Google Antigravity. In this documentation, **your AI coding platform** means whichever of those three you are currently using.
-
-Objective: Moving from Subjective Design Opinions to Well Grounded Expert Recommendations
+Open-source product journey design, grounded in evidence.
 
 Product feedback is often vague, redesign discussions become subjective, and teams approve attractive screens without knowing whether the complete journey works.
 Move from uncertain product feedback to a complete design direction grounded in credible sources.
 Design Arc audits the real journey, checks decisions against current first-party platform guidance and inspected real-product journeys, recommends the strongest path, and designs every important state before implementation begins.
+
+## Download & try on GitHub
+
+[Start with the installation guide](docs/getting-started.md). This [GitHub repository](https://github.com/friedbeef1/design-arc) is Design Arc's primary home for installation, source, updates, and feedback.
+
+Choose your AI coding platform in the guide and ask it to install Design Arc from this repository. If Design Arc helps you, star the repository to support the project and make it easier for others to discover.
+
 ### See Design Arc in action
 See how Design Arc turns vague feedback into an evidence-backed direction—watch the demo or browse the introduction deck.
 
@@ -35,6 +38,10 @@ See how Design Arc turns vague feedback into an evidence-backed direction—watc
 | [Trust and sources](docs/trust-limitations-and-sources.md) | Boundaries, limitations, and trusted sources. |
 
 ## One product, three platform editions
+
+One Design Arc, available for Codex (live), Claude Code (alpha), and Google Antigravity (alpha).
+
+Design Arc works in three AI coding platforms: Codex, Claude Code, and Google Antigravity. In this documentation, **your AI coding platform** means whichever of those three you are currently using.
 
 Choose the edition for the place where you already work. All three editions use the same Design Arc methodology, evidence rules, and approval gates. Codex is the **Live** edition; Claude Code and Google Antigravity are **Alpha** while their newer adapters mature.
 
@@ -99,9 +106,7 @@ Your AI coding platform produces a consolidated static journey board first, with
 
 ## Install
 
-**Codex — Live:** [Install the Live Codex edition from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b).
-
-GitHub remains the public source and fallback Codex marketplace. If you need that route, ask Codex to install the Design Arc plugin from https://github.com/friedbeef1/design-arc.
+**Ask Codex:** Install the Design Arc plugin from https://github.com/friedbeef1/design-arc.
 
 **Ask Claude Code:** Add the Design Arc marketplace from
 https://github.com/friedbeef1/design-arc and install `design-arc@design-arc-marketplace`.
@@ -112,6 +117,10 @@ https://github.com/friedbeef1/design-arc
 Antigravity CLI is optional. The [Google Antigravity guide](docs/antigravity.md) explains the Desktop-first route and the separate CLI plugin command.
 
 Follow the exact platform commands in [Getting started](docs/getting-started.md). Installation may require download permission.
+
+### Also available in the Codex directory
+
+Prefer installing through the directory? [Get Design Arc from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b). GitHub remains the primary project home for source, documentation, updates, and feedback.
 
 ## Start a review
 

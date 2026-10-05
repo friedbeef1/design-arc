@@ -26,7 +26,7 @@ A failed graph record reduces assistance rather than blocking the review: Design
 
 ## Plugin discovery and validation boundary
 
-The Live Codex edition is published in the OpenAI Plugin Directory. [Open the Design Arc listing](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b). GitHub remains the public source, the fallback Codex marketplace, and the installation source for the Claude Code and Google Antigravity Alpha editions.
+The [Design Arc GitHub repository](https://github.com/friedbeef1/design-arc) is the primary home for source, documentation, updates, and installation across Codex, Claude Code, and Google Antigravity. The Live Codex edition is also available through the [OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b) as an optional installation route.
 
 Deterministic tests protect the written workflow contract, but they do not prove every future runtime response. They verify package structure and reject known contract violations; current-task inspection and evidence are still required before any design, implementation, staging, or release claim.
 

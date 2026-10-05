@@ -8,11 +8,11 @@ Choose the Codex edition when your product work already happens in Codex.
 
 ## Install
 
-[Install the Live Codex edition from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b).
-
-GitHub remains the public source and fallback Codex marketplace. If you need that route, ask Codex:
+GitHub is Design Arc's primary project home and installation route. Ask Codex:
 
 > Install the Design Arc plugin from https://github.com/friedbeef1/design-arc
+
+If you prefer the directory, you can also [get Design Arc from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b).
 
 Then open the product project and say:
 

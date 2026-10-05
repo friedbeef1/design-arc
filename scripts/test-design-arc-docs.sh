@@ -104,9 +104,9 @@ require_text "$readme" "$directory_listing"
 require_text "$getting_started" "$directory_listing"
 require_text "$codex_edition" "$directory_listing"
 require_text "$trust_sources" "$directory_listing"
-require_text "$readme" 'Install the Live Codex edition from the OpenAI Plugin Directory'
-require_text "$getting_started" 'Install the Live Codex edition from the OpenAI Plugin Directory'
-require_text "$codex_edition" 'Install the Live Codex edition from the OpenAI Plugin Directory'
+require_text "$readme" 'Get Design Arc from the OpenAI Plugin Directory'
+require_text "$getting_started" 'get Design Arc from the OpenAI Plugin Directory'
+require_text "$codex_edition" 'get Design Arc from the OpenAI Plugin Directory'
 forbid_text "$trust_sources" 'Until an approved listing is actually published'
 forbid_text "$trust_sources" 'preparing or submitting a candidate does not mean OpenAI has approved or listed it'
 require_text "$readme" '| [**Codex**](docs/codex.md) | **Live** |'
@@ -206,19 +206,23 @@ if action_section not in text:
 action_position = text.index(action_section)
 description_end = text.index(opening_description) + len(opening_description)
 documentation_position = text.index("## Documentation")
-if action_position != description_end + 1:
-    raise SystemExit("FAIL: README action section must immediately follow the opening product description")
+github_position = text.index("## Download & try on GitHub")
+if not description_end < github_position < action_position:
+    raise SystemExit("FAIL: README must present GitHub getting started between the product description and demo")
 if action_position > documentation_position:
     raise SystemExit("FAIL: README action section must appear before Documentation")
 
-directory_instruction = "[Install the Live Codex edition from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b)"
-fallback_instruction = "ask Codex to install the Design Arc plugin from https://github.com/friedbeef1/design-arc"
+directory_instruction = "[Get Design Arc from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b)"
+github_instruction = "**Ask Codex:** Install the Design Arc plugin from https://github.com/friedbeef1/design-arc"
 if directory_instruction not in text:
-    raise SystemExit("FAIL: README is missing the primary OpenAI Plugin Directory instruction")
-if fallback_instruction not in text:
-    raise SystemExit("FAIL: README is missing the GitHub fallback installation instruction")
-if text.find(directory_instruction) > text.find(fallback_instruction):
-    raise SystemExit("FAIL: README must present the OpenAI Plugin Directory before the GitHub fallback")
+    raise SystemExit("FAIL: README is missing the optional OpenAI Plugin Directory instruction")
+if github_instruction not in text:
+    raise SystemExit("FAIL: README is missing the primary GitHub installation instruction")
+if text.find(github_instruction) > text.find(directory_instruction):
+    raise SystemExit("FAIL: README must present GitHub installation before the optional directory")
+for relative_path in ("README.md", "docs/getting-started.md", "docs/codex.md", "docs/trust-limitations-and-sources.md"):
+    if "fallback Codex marketplace" in (Path(sys.argv[1]).parent / relative_path).read_text():
+        raise SystemExit(f"FAIL: {relative_path} still labels GitHub as a fallback")
 
 for forbidden_text in ("```sh", "codex plugin", "skills registry", "Python", "Saved preferences and migration", "If Codex says"):
     if forbidden_text in text:
@@ -685,7 +689,7 @@ require_text "$trust_sources" 'Claude Desktop chat MCP configuration is separate
 require_text "$trust_sources" '[Anthropic’s Claude Code Desktop guide](https://code.claude.com/docs/en/desktop)'
 require_text "$trust_sources" '[Anthropic’s MCP guide](https://code.claude.com/docs/en/mcp)'
 require_text "$trust_sources" 'access is not bundled by Design Arc'
-require_text "$trust_sources" 'The Live Codex edition is published in the OpenAI Plugin Directory.'
+require_text "$trust_sources" 'as an optional installation route.'
 require_text "$trust_sources" 'Deterministic tests protect the written workflow contract, but they do not prove every future runtime response.'
 require_text "$trust_sources" 'Graph assistance is a project-local relationship record for correction planning, not a new source of truth.'
 require_text "$trust_sources" 'It cannot prove a requirement, establish runtime quality, replace current evidence, or authorize a product decision.'
@@ -770,6 +774,7 @@ if f"{local_command} --ref main" in advanced_controls:
 headings = re.findall(r"^#{1,2} .+$", text, re.MULTILINE)
 expected_headings = [
     "# Design Arc",
+    "## Download & try on GitHub",
     "## Documentation",
     "## One product, three platform editions",
     "## You need Design Arc if…",

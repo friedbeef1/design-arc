@@ -8,6 +8,8 @@ How do I install Design Arc and begin my first review?
 
 Design Arc is one product available for three platforms. Choose the edition for the place where you already work.
 
+Start with the [Design Arc GitHub repository](https://github.com/friedbeef1/design-arc), the primary home for installation, source, updates, and feedback. Use the instructions below for your platform.
+
 Codex is the **Live** edition. Claude Code and Google Antigravity are **Alpha** editions. They use the same methodology, but their newer platform adapters are still maturing.
 
 ## What you need
@@ -23,9 +25,7 @@ External pricing, availability, and quotas may change. Design Arc links to the c
 
 ## Install in Codex
 
-[Install the Live Codex edition from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b).
-
-GitHub remains the public source and fallback Codex marketplace. If you need that route, paste this into Codex:
+Paste this into Codex to install from GitHub:
 
 > Install the Design Arc plugin from https://github.com/friedbeef1/design-arc
 
@@ -46,6 +46,10 @@ Paste this into Google Antigravity Desktop:
 You do not need Antigravity CLI for Desktop use. Antigravity may ask permission to download the repository and place its `skills/design-arc` package in the global skills directory. The [Google Antigravity guide](antigravity.md) gives the exact destination and the optional CLI route.
 
 The Codex, Claude Code, and Google Antigravity editions are installed independently, but use the same Design Arc methodology. They are not different products. Choose the runtime page for the AI coding platform for installation, saved state, and returning later. Read [Design Arc for Codex](codex.md), [Design Arc for Claude Code](claude-code.md), or [Design Arc for Google Antigravity](antigravity.md).
+
+### Optional: install through the Codex directory
+
+You can also [get Design Arc from the OpenAI Plugin Directory](https://chatgpt.com/plugins/plugins_6a82ffefdc88819191f5eaab4eaf116b). GitHub remains the primary project home whichever installation route you choose.
 
 ## Start by describing the problem
 
